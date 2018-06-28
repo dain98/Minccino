@@ -21,8 +21,9 @@ class Osu:
 
     @commands.command(pass_context=True)
     async def osu(self,ctx,*username_list):
-        username = " ".join(username_list)
-        self.template = Image.open("data/osu/template.png")
+        username = " ".join(username_list) # Turn list of words into one string
+        self.template = Image.open("data/osu/template.png") # Reset self.template to remove overlaps
+        # Get user data
         async with aiohttp.ClientSession(headers=self.header) as session:
             try:
                 async with session.get("https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username) as channel:
@@ -30,7 +31,8 @@ class Osu:
             except Exception as e:
                 await self.bot.send_message(ctx.message.channel,"Error: " + e)
                 return
-        if len(res) == 0:
+
+        if len(res) == 0: # If json is empty the user doesn't exist
             await self.bot.send_message(ctx.message.channel,"Player not found in the osu! database! :x:")
             return
 
@@ -41,6 +43,7 @@ class Osu:
         rankfnt = ImageFont.truetype("data/osu/fonts/default.otf",18)
         cntfnt = ImageFont.truetype("data/osu/fonts/default.otf",14)
         draw = ImageDraw.Draw(self.template)
+        # Draw the text in first
         draw.text((125,200), res[0]['username'], font=namefnt, fill=(255,255,255))
         draw.text((125,234), res[0]['country'] + ": " + res[0]['pp_country_rank'], font=cntfnt, fill=(255,255,255))
         draw.text((125,249), res[0]['pp_raw'] + "pp (#" + res[0]['pp_rank'] + ")", font=rankfnt, fill=(255,255,255))
@@ -48,13 +51,14 @@ class Osu:
         avatar = Image.open("data/osu/useravatar.png")
         avatar.thumbnail((98,98),Image.ANTIALIAS)
         self.template.paste(avatar,(19,164))
-        # Paste avatar corners onto temp_template
+        # Paste avatar corners on top of the avatar to create rounded edges
         aviborder = Image.open("data/osu/avatar_border.png")
         aviborder.thumbnail((98,98),Image.ANTIALIAS)
         self.template.paste(aviborder,(19,164),aviborder)
-        self.template.save("data/osu/temp_template.png")
+        
+        self.template.save("data/osu/temp_template.png") # Save the file onto a temporary file
         await self.bot.send_file(ctx.message.channel, 'data/osu/temp_template.png')
-        os.remove("data/osu/temp_template.png")
+        os.remove("data/osu/temp_template.png") # Delete the file to reduce clutter
 
 def setup(bot):
     print("setting up...")
