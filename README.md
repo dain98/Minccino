@@ -1,2 +1,2 @@
 # Minccino
-The Little Sister of Chinchou
+The Little Sister of Chinchou!
