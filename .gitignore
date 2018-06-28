@@ -1,0 +1,10 @@
+*.json
+*.pyc
+__pycache__
+data
+*.exe
+*.dll
+start_red*
+start_launcher.sh
+start_launcher.command
+lib
