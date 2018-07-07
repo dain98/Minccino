@@ -22,7 +22,8 @@ class League:
     @commands.command(pass_context=True)
     async def champion(self,ctx,*champname_list):
         champname = " ".join(champname_list)
-        f = { 'champData' : 'hashes' }
+        # f = { 'champData' : 'hashes' }
+        f = { 'elo' : 'PLATINUM,DIAMOND,MASTER,CHALLENGER' , 'champData' : { 'kda', }
         res = py_gg.champions.specific(412,f)
         print(res)
 
