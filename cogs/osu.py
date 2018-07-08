@@ -5,8 +5,10 @@ from string import ascii_letters
 from .utils import checks
 import os
 import re
+import math
 import aiohttp
 import pyoppai
+import datetime
 from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 import urllib.request
@@ -22,11 +24,19 @@ class Osu:
         self.users = dataIO.load_json("data/osu/users.json")
 
     @commands.command(pass_context=True)
-    async def mapstats(self,ctx,mapID):
+    async def mapstats(self,ctx,mapID,mods):
         url = 'https://osu.ppy.sh/osu/{}'.format(mapID)
 
+        accs = [100]
+        misses = 0
+        completion = None
+        fc = None
+        plot = False
+        imgur = None
+        mods = int(mods)
+
         ctx = pyoppai.new_ctx()
-        b = pyoppai.new_beatmaps(ctx)
+        b = pyoppai.new_beatmap(ctx)
 
         BUFSIZE = 2000000
         buf = pyoppai.new_buffer(BUFSIZE)
@@ -35,8 +45,56 @@ class Osu:
         await download_file(url, file_path)
         pyoppai.parse(file_path, b, buf, BUFSIZE, True, 'data/osu/cache/')
         dctx = pyoppai.new_d_calc_ctx(ctx)
+        pyoppai.apply_mods(b, mods)
 
+        stars, aim, speed, _, _, _, _ = pyoppai.d_calc(dctx, b)
+        cs, od, ar, hp = pyoppai.stats(b)
 
+        combo = pyoppai.max_combo(b)
+
+        total_pp_list = []
+        aim_pp_list = []
+        speed_pp_list = []
+        acc_pp_list = []
+
+        for acc in accs:
+            accurracy, pp, aim_pp, speed_pp, acc_pp = pyoppai.pp_calc_acc(ctx, aim, speed, b, acc, mods, combo, misses)
+            total_pp_list.append(pp)
+            aim_pp_list.append(aim_pp)
+            speed_pp_list.append(speed_pp)
+            acc_pp_list.append(acc_pp)
+
+        if fc:
+            _, fc_pp, _, _, _ = pyoppai.pp_calc_acc(ctx, aim, speed, b, fc, mods, pyoppai.max_combo(b), 0)
+            total_pp_list.append(fc_pp)
+
+        pyoppai_json = {
+            'version': pyoppai.version(b),
+            'title': pyoppai.title(b),
+            'artist': pyoppai.artist(b),
+            'creator': pyoppai.creator(b),
+            'combo': combo,
+            'misses': misses,
+            'max_combo': pyoppai.max_combo(b),
+            'mode': pyoppai.mode(b),
+            'num_objects': pyoppai.num_objects(b),
+            'num_circles': pyoppai.num_circles(b),
+            'num_sliders': pyoppai.num_sliders(b),
+            'num_spinners': pyoppai.num_spinners(b),
+            'stars': stars,
+            'aim_stars': aim,
+            'speed_stars': speed,
+            'pp': total_pp_list, # list
+            'aim_pp': aim_pp_list,
+            'speed_pp': speed_pp_list,
+            'acc_pp': acc_pp_list,
+            'acc': accs, # list
+            'cs': cs,
+            'od': od,
+            'ar': ar,
+            'hp': hp
+            }
+        await self.bot.say(pyoppai_json)
 
     @commands.command(pass_context=True)
     async def osuset(self,ctx,*username_list):
@@ -148,7 +206,7 @@ class Osu:
         if len(res) == 0: # If json is empty the user doesn't exist
             await self.bot.send_message(ctx.message.channel,"Player not found in the osu! database! :x:")
             return
-        temp2 = await self.bot.say("**osu! Top Plays for " + username + ":** ")
+        # temp2 = await self.bot.say("**osu! Top Plays for " + username + ":** ")
         numpage = ((len(res) - 1) / 5)
         #res[(i-1)*5:i*5]
         i=1
@@ -175,48 +233,141 @@ class Osu:
                 mods = str(",".join(num_to_mod(j['enabled_mods'])))
                 if mods == "":
                     mods = "NoMod"
-                stars = round(float(bmapres[0]['difficultyrating']),2)
-                f.append("**" + str((i-1)*5+count+1) + ". [" + map + "](" + url + ") +" + mods + "** [" + str(stars) + "\*]")
-                f.append("")
-                count += 1
-            embed = discord.Embed(colour=0x00FFFF,title="Page %d"%i,description="\n".join(f))
-            embed.set_thumbnail(url="https://a.ppy.sh/" + uid)
-            if isStart:
-                isStart = False
-                msg = await self.bot.send_message(ctx.message.channel,embed=embed)
-                await self.bot.add_reaction(msg,"⬅")
-                await self.bot.add_reaction(msg,"➡")
-                await self.bot.add_reaction(msg,"✅")
-            else:
-                await self.bot.edit_message(msg,embed=embed)
-            res1 = await self.bot.wait_for_reaction(['⬅','➡','✅'], user=ctx.message.author, message=msg, timeout=60)
-            if res1 is None:
-                await self.bot.delete_message(msg)
-                await self.bot.delete_message(temp2)
-                break
-            elif "➡" in res1.reaction.emoji and (i < numpage):
-                i += 1
-                await self.bot.remove_reaction(msg,"➡",ctx.message.author)
-            elif "⬅" in res1.reaction.emoji and i is not 1:
-                i -= 1
-                await self.bot.remove_reaction(msg,"⬅",ctx.message.author)
-            elif '✅' in res1.reaction.emoji:
-                await self.bot.clear_reactions(msg)
-                temp = await self.bot.send_message(ctx.message.channel,"**Minccino will keep this message here! ✅**")
-                await asyncio.sleep(2)
-                await self.bot.delete_message(temp)
-                break
-            else:
-                if i == 1:
-                    await self.bot.remove_reaction(msg,"⬅",ctx.message.author)
-                    temp = await self.bot.send_message(ctx.message.channel,"**You've reached the beginning of this list.**")
-                    await asyncio.sleep(1)
-                    await self.bot.delete_message(temp)
+                if "DT" in num_to_mod(j['enabled_mods']) or "HR" in num_to_mod(j['enabled_mods']) or "EZ" in num_to_mod(j['enabled_mods']) or "HT" in num_to_mod(j['enabled_mods']):
+                    stars = await get_sr(str(j['beatmap_id']),str(j['enabled_mods']))
+                    stars = round(stars,2)
                 else:
+                    stars = round(float(bmapres[0]['difficultyrating']),2)
+                f.append("**" + str((i-1)*5+count+1) + ". [" + map + "](" + url + ") +" + mods + "** [" + str(stars) + "\*]")
+                rank = str(j['rank']) + " rank"
+                pp = float(j['pp'])
+                pp = str(round(pp,2)) + "pp"
+                accuracy = round(calculate_acc(j),2)
+                accuracy = str(accuracy) + "%"
+                f.append("▸ **" + rank + "** ▸ **" + pp + "** ▸ " + accuracy)
+                score = str(j['score'])
+                combo = str(j['maxcombo'])
+                mcombo = str(bmapres[0]['max_combo'])
+                count300 = str(j['count300'])
+                count100 = str(j['count100'])
+                count50 = str(j['count50'])
+                misses = str(j['countmiss'])
+                counts = count300 + "/" + count100 + "/" + count50 + "/" + misses
+                f.append("▸ " + score + " ▸ x" + combo + "/" + mcombo + " ▸ [" + counts + "]")
+                timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=8), datetime.datetime.strptime(j['date'], '%Y-%m-%d %H:%M:%S'))
+                f.append('▸ Score Set {}Ago'.format(timeago))
+                count += 1
+            embed = discord.Embed(colour=0x00FFFF,title="Top osu! Plays for %s"%username,description="\n".join(f))
+            embed.set_thumbnail(url="https://a.ppy.sh/" + uid)
+            embed.set_footer(text="Page " + str(i) + " of " + str(math.ceil(numpage)))
+            try:
+                if isStart:
+                    isStart = False
+                    msg = await self.bot.send_message(ctx.message.channel,embed=embed)
+                    await self.bot.add_reaction(msg,"⬅")
+                    await self.bot.add_reaction(msg,"➡")
+                    await self.bot.add_reaction(msg,"✅")
+                else:
+                    await self.bot.edit_message(msg,embed=embed)
+                res1 = await self.bot.wait_for_reaction(['⬅','➡','✅'], user=ctx.message.author, message=msg, timeout=60)
+                if res1 is None:
+                    await self.bot.delete_message(msg)
+                    # await self.bot.delete_message(temp2)
+                    break
+                elif "➡" in res1.reaction.emoji and (i < numpage):
+                    i += 1
                     await self.bot.remove_reaction(msg,"➡",ctx.message.author)
-                    temp = await self.bot.send_message(ctx.message.channel,"**You've reached the end of this list.**")
-                    await asyncio.sleep(1)
+                elif "⬅" in res1.reaction.emoji and i is not 1:
+                    i -= 1
+                    await self.bot.remove_reaction(msg,"⬅",ctx.message.author)
+                elif '✅' in res1.reaction.emoji:
+                    await self.bot.clear_reactions(msg)
+                    temp = await self.bot.send_message(ctx.message.channel,"**Minccino will keep this message here! ✅**")
+                    await asyncio.sleep(2)
                     await self.bot.delete_message(temp)
+                    break
+                else:
+                    if i == 1:
+                        await self.bot.remove_reaction(msg,"⬅",ctx.message.author)
+                        temp = await self.bot.send_message(ctx.message.channel,"**You've reached the beginning of this list.**")
+                        await asyncio.sleep(1)
+                        await self.bot.delete_message(temp)
+                    else:
+                        await self.bot.remove_reaction(msg,"➡",ctx.message.author)
+                        temp = await self.bot.send_message(ctx.message.channel,"**You've reached the end of this list.**")
+                        await asyncio.sleep(1)
+                        await self.bot.delete_message(temp)
+            except:
+                await self.bot.say("**I need permission to edit messages! (Server Settings -> Roles -> [Bot Role] -> Manage Messages -> On)**") 
+
+def determine_plural(number):
+    if int(number) != 1:
+        return 's'
+    else:
+        return ''
+
+def time_ago(time1, time2):
+    time_diff = time1 - time2
+    timeago = datetime.datetime(1,1,1) + time_diff
+    time_limit = 0
+    time_ago = ""
+    if timeago.year-1 != 0:
+        time_ago += "{} Year{} ".format(timeago.year-1, determine_plural(timeago.year-1))
+        time_limit = time_limit + 1
+    if timeago.month-1 !=0:
+        time_ago += "{} Month{} ".format(timeago.month-1, determine_plural(timeago.month-1))
+        time_limit = time_limit + 1
+    if timeago.day-1 !=0 and not time_limit == 2:
+        time_ago += "{} Day{} ".format(timeago.day-1, determine_plural(timeago.day-1))
+        time_limit = time_limit + 1
+    if timeago.hour != 0 and not time_limit == 2:
+        time_ago += "{} Hour{} ".format(timeago.hour, determine_plural(timeago.hour))
+        time_limit = time_limit + 1
+    if timeago.minute != 0 and not time_limit == 2:
+        time_ago += "{} Minute{} ".format(timeago.minute, determine_plural(timeago.minute))
+        time_limit = time_limit + 1
+    if not time_limit == 2:
+        time_ago += "{} Second{} ".format(timeago.second, determine_plural(timeago.second))
+    return time_ago
+
+def calculate_acc(beatmap):
+    total_unscale_score = float(beatmap['count300'])
+    total_unscale_score += float(beatmap['count100'])
+    total_unscale_score += float(beatmap['count50'])
+    total_unscale_score += float(beatmap['countmiss'])
+    total_unscale_score *=300
+    user_score = float(beatmap['count300']) * 300.0
+    user_score += float(beatmap['count100']) * 100.0
+    user_score += float(beatmap['count50']) * 50.0
+    return (float(user_score)/float(total_unscale_score)) * 100.0
+
+async def get_sr(mapID, mods):
+    url = 'https://osu.ppy.sh/osu/{}'.format(mapID)
+    ctx = pyoppai.new_ctx()
+    b = pyoppai.new_beatmap(ctx)
+
+    BUFSIZE = 2000000
+    buf = pyoppai.new_buffer(BUFSIZE)
+
+    file_path = 'data/osu/maps/{}.osu'.format(mapID)
+    await download_file(url, file_path)
+    pyoppai.parse(file_path, b, buf, BUFSIZE, True, 'data/osu/cache/')
+    dctx = pyoppai.new_d_calc_ctx(ctx)
+    pyoppai.apply_mods(b, int(mods))
+
+    stars, _, _, _, _, _, _ = pyoppai.d_calc(dctx, b)
+    return stars
+
+async def download_file(url, filename):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            with open(filename, 'wb') as f:
+                while True:
+                    chunk = await response.content.read(1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            return await response.release()
 
 def num_to_mod(number):
     """This is the way pyttanko does it.
