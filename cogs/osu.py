@@ -139,7 +139,6 @@ class Osu:
         i=1
         isStart = True
         while(True):
-            print("during while", i)
             f = []
             tempres = res[(i-1)*5:i*5]
             count = 0
