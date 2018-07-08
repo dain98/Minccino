@@ -198,8 +198,7 @@ class Osu:
                 res1 = await self.bot.wait_for_reaction(['⬅','➡','✅'], user=ctx.message.author, message=msg, timeout=60)
                 if res1 is None:
                     await self.bot.delete_message(msg)
-                    # await self.bot.delete_message(temp2)
-                    break
+                    return
                 elif "➡" in res1.reaction.emoji and (i < numpage):
                     i += 1
                     await self.bot.remove_reaction(msg,"➡",ctx.message.author)
@@ -211,7 +210,7 @@ class Osu:
                     temp = await self.bot.send_message(ctx.message.channel,"**Minccino will keep this message here! ✅**")
                     await asyncio.sleep(2)
                     await self.bot.delete_message(temp)
-                    break
+                    return
                 else:
                     if i == 1:
                         await self.bot.remove_reaction(msg,"⬅",ctx.message.author)
@@ -284,6 +283,7 @@ async def get_sr(mapID, mods):
     pyoppai.apply_mods(b, int(mods))
 
     stars, _, _, _, _, _, _ = pyoppai.d_calc(dctx, b)
+    os.remove(file_path)
     return stars
 
 async def download_file(url, filename):
