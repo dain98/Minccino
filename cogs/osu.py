@@ -24,79 +24,6 @@ class Osu:
         self.users = dataIO.load_json("data/osu/users.json")
 
     @commands.command(pass_context=True)
-    async def mapstats(self,ctx,mapID,mods):
-        url = 'https://osu.ppy.sh/osu/{}'.format(mapID)
-
-        accs = [100]
-        misses = 0
-        completion = None
-        fc = None
-        plot = False
-        imgur = None
-        mods = int(mods)
-
-        ctx = pyoppai.new_ctx()
-        b = pyoppai.new_beatmap(ctx)
-
-        BUFSIZE = 2000000
-        buf = pyoppai.new_buffer(BUFSIZE)
-
-        file_path = 'data/osu/maps/{}.osu'.format(mapID)
-        await download_file(url, file_path)
-        pyoppai.parse(file_path, b, buf, BUFSIZE, True, 'data/osu/cache/')
-        dctx = pyoppai.new_d_calc_ctx(ctx)
-        pyoppai.apply_mods(b, mods)
-
-        stars, aim, speed, _, _, _, _ = pyoppai.d_calc(dctx, b)
-        cs, od, ar, hp = pyoppai.stats(b)
-
-        combo = pyoppai.max_combo(b)
-
-        total_pp_list = []
-        aim_pp_list = []
-        speed_pp_list = []
-        acc_pp_list = []
-
-        for acc in accs:
-            accurracy, pp, aim_pp, speed_pp, acc_pp = pyoppai.pp_calc_acc(ctx, aim, speed, b, acc, mods, combo, misses)
-            total_pp_list.append(pp)
-            aim_pp_list.append(aim_pp)
-            speed_pp_list.append(speed_pp)
-            acc_pp_list.append(acc_pp)
-
-        if fc:
-            _, fc_pp, _, _, _ = pyoppai.pp_calc_acc(ctx, aim, speed, b, fc, mods, pyoppai.max_combo(b), 0)
-            total_pp_list.append(fc_pp)
-
-        pyoppai_json = {
-            'version': pyoppai.version(b),
-            'title': pyoppai.title(b),
-            'artist': pyoppai.artist(b),
-            'creator': pyoppai.creator(b),
-            'combo': combo,
-            'misses': misses,
-            'max_combo': pyoppai.max_combo(b),
-            'mode': pyoppai.mode(b),
-            'num_objects': pyoppai.num_objects(b),
-            'num_circles': pyoppai.num_circles(b),
-            'num_sliders': pyoppai.num_sliders(b),
-            'num_spinners': pyoppai.num_spinners(b),
-            'stars': stars,
-            'aim_stars': aim,
-            'speed_stars': speed,
-            'pp': total_pp_list, # list
-            'aim_pp': aim_pp_list,
-            'speed_pp': speed_pp_list,
-            'acc_pp': acc_pp_list,
-            'acc': accs, # list
-            'cs': cs,
-            'od': od,
-            'ar': ar,
-            'hp': hp
-            }
-        await self.bot.say(pyoppai_json)
-
-    @commands.command(pass_context=True)
     async def osuset(self,ctx,*username_list):
         username = " ".join(username_list)
         if username == "":
@@ -298,7 +225,9 @@ class Osu:
                         await asyncio.sleep(1)
                         await self.bot.delete_message(temp)
             except:
-                await self.bot.say("**I need permission to edit messages! (Server Settings -> Roles -> [Bot Role] -> Manage Messages -> On)**") 
+                temp2 = await self.bot.say("**I need permission to edit messages! (Server Settings -> Roles -> [Bot Role] -> Manage Messages -> On)**")
+                await asyncio.sleep(2)
+                await self.bot.delete_message(temp2)
 
 def determine_plural(number):
     if int(number) != 1:
