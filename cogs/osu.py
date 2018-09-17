@@ -22,6 +22,36 @@ class Osu:
         self.template = Image.open("data/osu/template.png")
         self.settings = dataIO.load_json("data/osu/settings.json")
         self.users = dataIO.load_json("data/osu/users.json")
+        self.maps = dataIO.load_json("data/osu/maps/maps.json")
+
+    @commands.command(pass_context=True)
+    async def getpp(self,ctx):
+        bmap = 1556336
+        mods = 72
+        acc = 94.51
+        combo = 321
+        misses = 1
+        pp = await get_pp(bmap,mods,acc,combo,misses)
+        await self.bot.say(pp)
+
+    async def message_triggered(self,message):
+        if 'https://osu.ppy.sh/community/matches' in message.content:
+            url = message.content
+
+    @commands.command(pass_context=True)
+    async def mp(self,ctx,url):
+        if 'https://osu.ppy.sh/community/matches' in url:
+            try:
+                url = url.split("matches/")
+            except:
+                await self.bot.say("Invalid URL! :x:")
+                return
+            url = url[1]
+        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_match?k=" + self.settings['api_key'] + "&mp=" + url)
+        if res['match'] == 0:
+            await self.bot.say("Invalid URL! :x:")
+            return
+
 
     @commands.command(pass_context=True)
     async def osuset(self,ctx,*username_list):
@@ -40,31 +70,21 @@ class Osu:
             res = await self.bot.wait_for_message(timeout=10,author=ctx.message.author,check=check)
             await self.bot.delete_message(msg1)
             if res is None:
-                temp = await self.bot.say("Response Timed Out. (You took too long to respond)")
-                await asyncio.sleep(2)
-                await self.bot.delete_message(temp)
+                await self.bot.say("Response Timed Out. (You took too long to respond)")
             elif res.content.startswith("y"):
                 self.users[ctx.message.author.id] = username
                 dataIO.save_json("data/osu/users.json", self.users)
-                temp = await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
-                await asyncio.sleep(2)
-                await self.bot.delete_message(temp)
+                await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
                 return True
             elif res.content.startswith("n"):
-                temp = await self.bot.say("osu! username change canceled. ❌")
-                await asyncio.sleep(2)
-                await self.bot.delete_message(temp)
+                await self.bot.say("osu! username change canceled. ❌")
                 return True
             else:
-                temp = await self.bot.say("Response Timed Out. (You took too long to respond)")
-                await asyncio.sleep(2)
-                await self.bot.delete_message(temp)
+                await self.bot.say("Response Timed Out. (You took too long to respond)")
         else:
             self.users[ctx.message.author.id] = username
             dataIO.save_json("data/osu/users.json", self.users)
-            temp = await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
-            await asyncio.sleep(2)
-            await self.bot.delete_message(temp)
+            await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
 
     @commands.command(pass_context=True)
     async def osu(self,ctx,*username_list):
@@ -77,14 +97,7 @@ class Osu:
                 username = self.users[ctx.message.author.id]
         self.template = Image.open("data/osu/template.png") # Reset self.template to remove overlaps
         # Get user data
-        async with aiohttp.ClientSession(headers=self.header) as session:
-            try:
-                async with session.get("https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username) as channel:
-                    res = await channel.json()
-            except Exception as e:
-                await self.bot.send_message(ctx.message.channel,"Error: " + e)
-                return
-
+        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
         if len(res) == 0: # If json is empty the user doesn't exist
             await self.bot.send_message(ctx.message.channel,"Player not found in the osu! database! :x:")
             return
@@ -123,13 +136,7 @@ class Osu:
             else:
                 username = self.users[ctx.message.author.id]
         # Get user data
-        async with aiohttp.ClientSession(headers=self.header) as session:
-            try:
-                async with session.get("https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=50") as channel:
-                    res = await channel.json()
-            except Exception as e:
-                await self.bot.send_message(ctx.message.channel,"Error: " + e)
-                return
+        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=50")
         if len(res) == 0: # If json is empty the user doesn't exist
             await self.bot.send_message(ctx.message.channel,"Player not found in the osu! database! :x:")
             return
@@ -147,20 +154,14 @@ class Osu:
             except:
                 uid = ""
             for j in tempres:
-                async with aiohttp.ClientSession(headers=self.header) as session:
-                    try:
-                        async with session.get("https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + j['beatmap_id']) as channel:
-                            bmapres = await channel.json()
-                    except Exception as e:
-                        await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
-                        return
+                bmapres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + j['beatmap_id'])
                 map = str(bmapres[0]['title'] + " [" + str(bmapres[0]['version']) + "]")
                 url = "https://osu.ppy.sh/b/" + str(j['beatmap_id'])
                 mods = str(",".join(num_to_mod(j['enabled_mods'])))
                 if mods == "":
                     mods = "NoMod"
                 if "DT" in num_to_mod(j['enabled_mods']) or "HR" in num_to_mod(j['enabled_mods']) or "EZ" in num_to_mod(j['enabled_mods']) or "HT" in num_to_mod(j['enabled_mods']):
-                    stars = await get_sr(str(j['beatmap_id']),str(j['enabled_mods']))
+                    stars = await get_sr(self,str(j['beatmap_id']),str(j['enabled_mods']))
                     stars = round(stars,2)
                 else:
                     stars = round(float(bmapres[0]['difficultyrating']),2)
@@ -268,7 +269,19 @@ def calculate_acc(beatmap):
     user_score += float(beatmap['count50']) * 50.0
     return (float(user_score)/float(total_unscale_score)) * 100.0
 
-async def get_sr(mapID, mods):
+async def use_api(self, ctx,url):
+    async with aiohttp.ClientSession(headers=self.header) as session:
+        try:
+            async with session.get(url) as channel:
+                res = await channel.json()
+                return res
+        except Exception as e:
+            await self.bot.send_message(ctx.message.channel,"Error: " + e)
+            return
+
+async def get_sr(self, mapID, mods):
+    if mapID in self.maps:
+        return self.maps[mapID]['stars']
     url = 'https://osu.ppy.sh/osu/{}'.format(mapID)
     ctx = pyoppai.new_ctx()
     b = pyoppai.new_beatmap(ctx)
@@ -282,9 +295,35 @@ async def get_sr(mapID, mods):
     dctx = pyoppai.new_d_calc_ctx(ctx)
     pyoppai.apply_mods(b, int(mods))
 
-    stars, _, _, _, _, _, _ = pyoppai.d_calc(dctx, b)
+    stars, aim, speed, _, _, _, _ = pyoppai.d_calc(dctx, b)
+    pyoppai_json = {
+        'stars' : stars
+    }
+
+    self.maps[mapID] = pyoppai_json
+    dataIO.save_json("data/osu/maps/maps.json",self.maps)
     os.remove(file_path)
     return stars
+
+async def get_pp(mapID, mods, accuracy, combo, misses):
+    url = 'https://osu.ppy.sh/osu/{}'.format(mapID)
+    ctx = pyoppai.new_ctx()
+    b = pyoppai.new_beatmap(ctx)
+
+    BUFSIZE = 2000000
+    buf = pyoppai.new_buffer(BUFSIZE)
+
+    file_path = 'data/osu/maps/{}.osu'.format(mapID)
+    await download_file(url, file_path)
+    pyoppai.parse(file_path, b, buf, BUFSIZE, True, 'data/osu/cache/')
+    dctx = pyoppai.new_d_calc_ctx(ctx)
+    pyoppai.apply_mods(b, int(mods))
+
+    stars, aim, speed, _, _, _, _ = pyoppai.d_calc(dctx, b)
+    acc, pp, aim_pp, speed_pp, acc_pp = pyoppai.pp_calc_acc(ctx, aim, speed, b,accuracy,mods,combo,misses,2)
+    os.remove(file_path)
+    print(stars,aim,speed,acc,pp,aim_pp,speed_pp,acc_pp)
+    return pp
 
 async def download_file(url, filename):
     async with aiohttp.ClientSession() as session:
@@ -298,9 +337,6 @@ async def download_file(url, filename):
             return await response.release()
 
 def num_to_mod(number):
-    """This is the way pyttanko does it.
-    Just as an actual bitwise instead of list.
-    Deal with it."""
     number = int(number)
     mod_list = []
 
@@ -333,4 +369,5 @@ def num_to_mod(number):
 def setup(bot):
     print("setting up...")
     n = Osu(bot)
+    bot.add_listener(n.message_triggered, "on_message")
     bot.add_cog(n)

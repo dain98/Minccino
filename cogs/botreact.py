@@ -23,7 +23,16 @@ class Botreact:
             await self.bot.send_message(message.channel, "<:yayy:444933813043462145>")
         if 'bad bot' in message2:
             await self.bot.send_message(message.channel, ":[")
-
+        if 'all aboard the hype train' in message2:
+            await self.bot.send_message(message.channel, "<a:hypetrain:450609914705084416><a:hypetrain:450609914705084416><a:hypetrain:450609914705084416><a:hypetrain:450609914705084416><a:hypetrain:450609914705084416><a:hypetrain:450609914705084416><a:hypetrain:450609914705084416>")
+        if 'alexa play honesty' in message2:
+            await self.bot.send_message(message.channel, "ɴᴏᴡ ᴘʟᴀʏɪɴɢ: GYZE - HONESTY")
+            await self.bot.send_message(message.channel, "─────────────────:white_circle:─────────────")
+            await self.bot.send_message(message.channel, "◄◄⠀▐▐ ⠀►►⠀⠀ ⠀ 3:4𝟾 / 5:02 ⠀ ───○ :loud_sound:⠀ ᴴᴰ :gear:")
+        if 'alexa play despacito' in message2:
+            await self.bot.send_message(message.channel, "ɴᴏᴡ ᴘʟᴀʏɪɴɢ: Luis Fonsi - Despacito ft. Daddy Yankee")
+            await self.bot.send_message(message.channel, "───────────────────────────:white_circle:───")
+            await self.bot.send_message(message.channel, "◄◄⠀▐▐ ⠀►►⠀⠀ ⠀ 3:4𝟾 / 4:41 ⠀ ───○ :loud_sound:⠀ ᴴᴰ :gear:")
 def setup(bot):
     print("setting up...")
     n = Botreact(bot)

@@ -21,6 +21,23 @@ class League:
         self.summoners = dataIO.load_json("data/league/summoners.json")
         py_gg.init(self.settings['api_key'])
 
+    async def message_triggered(self, message):
+        message2 = message.content
+        if 'op.gg/summoner/userName=' in message2:
+            url = message2.split("//")
+            url = url[1]
+            region = url.split('.')
+            region = region[0]
+            if 'www' in region:
+                region = "kr"
+            username = url.split('=')
+            username = username[1]
+            if '+' in username:
+                username = username.replace("+"," ")
+            if '%20' in username:
+                username = username.replace("%20"," ")
+            await self.bot.summoner.callback(self,region,username)
+
     @commands.command(pass_context=True)
     async def summoner(self,ctx,region,*summname_list):
         cnl = ctx.message.channel
@@ -206,4 +223,5 @@ async def getjson(self,url):
 def setup(bot):
     print("setting up...")
     n = League(bot)
+    bot.add_listener(n.message_triggered, "on_message")
     bot.add_cog(n)
