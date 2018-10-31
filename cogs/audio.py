@@ -196,7 +196,6 @@ class Playlist:
     def can_edit(self, user):
         """right now checks if user is mod or higher including server owner
         global playlists are uneditable atm
-
         dev notes:
         should probably be defined elsewhere later or be dynamic"""
 
@@ -514,7 +513,6 @@ class Audio:
 
     async def _download_next(self, server, curr_dl, next_dl):
         """Checks to see if we need to download the next, and does.
-
         Both curr_dl and next_dl should already be started."""
         if curr_dl.song is None:
             # Only happens when the downloader thread hasn't initialized fully
@@ -1483,6 +1481,10 @@ class Audio:
         voice_channel = author.voice_channel
         channel = ctx.message.channel
 
+        if "www.youtube.com/playlist" in url:
+            await self.bot.send_message(channel, "Use [p]playlist to manage playlist urls.")
+            return
+
         # Checking if playing in current server
 
         if self.is_playing(server):
@@ -1674,7 +1676,6 @@ class Audio:
     @playlist.command(pass_context=True, no_pm=True, name="queue")
     async def playlist_queue(self, ctx, url):
         """Adds a song to the playlist loop.
-
         Does NOT write to disk."""
         server = ctx.message.server
         channel = ctx.message.channel
@@ -1776,7 +1777,6 @@ class Audio:
     @commands.command(pass_context=True, no_pm=True, name="queue")
     async def _queue(self, ctx, *, url=None):
         """Queues a song to play next. Extended functionality in `[p]help`
-
         If you use `queue` when one song is playing, your new song will get
             added to the song loop (if running). If you use `queue` when a
             playlist is running, it will temporarily be played next and will

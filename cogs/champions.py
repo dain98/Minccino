@@ -27,9 +27,6 @@ class Champions:
         self.template = Image.open("data/league/template.png")
         self.runestemplate = Image.open("data/league/runestemplate.png")
         py_gg.init(self.settings['api_key'])
-        opener=urllib.request.build_opener()
-        opener.addheaders=[('User-Agent','Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1941.0 Safari/537.36')]
-        urllib.request.install_opener(opener)
 
     @commands.command(pass_context=True)
     @checks.is_owner()
@@ -45,7 +42,10 @@ class Champions:
         cnl = ctx.message.channel
         championn = " ".join(champion_list)
         championn = " ".join(w.capitalize() for w in championn.split())
+        championn = championn.replace("'"," ")
         champion = championn.replace(" ","")
+        if champion == "J4" or champion == "JarvanIv":
+            champion = "JarvanIV"
         if champion == "Wukong":
             champion = "MonkeyKing"
         try:
@@ -58,9 +58,14 @@ class Champions:
         self.runestemplate = Image.open("data/league/runestemplate.png")
         options = {"champData" : "hashes"}
         res = py_gg.champions.specific(int(champID),options)
-        runeslist = res[0]['hashes']['runehash']['highestCount']['hash']
-        count = res[0]['hashes']['runehash']['highestCount']['count']
-        winrate = res[0]['hashes']['runehash']['highestCount']['winrate']
+        try:
+            runeslist = res[0]['hashes']['runehash']['highestCount']['hash']
+            count = res[0]['hashes']['runehash']['highestCount']['count']
+            winrate = res[0]['hashes']['runehash']['highestCount']['winrate']
+        except:
+            await self.bot.delete_message(loading)
+            await self.bot.send_message(cnl,":confused: Data for champion runes couldn't be found...not too sure why.")
+            return
         runeslist = runeslist.split("-")
         # Identifying each rune
         for i in self.runesdata:
@@ -171,7 +176,7 @@ class Champions:
         # Adding Corners
         self.runestemplate = add_corners(self.runestemplate,10)
         self.runestemplate.save("data/league/temp_template.png")
-        await self.bot.send_message(cnl,"**Champion Runes for " + championn + ":** ")
+        await self.bot.send_message(cnl,"**Champion Runes for " + self.champions['data'][champion]['name'] + ":** ")
         await self.bot.delete_message(loading)
         await self.bot.send_file(cnl,"data/league/temp_template.png")
         os.remove("data/league/temp_template.png")
