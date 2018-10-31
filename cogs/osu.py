@@ -435,8 +435,6 @@ async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, com
 
     os.remove(file_path)
     return pyttanko_json
-    #except:
-        #return None
 
 async def _map_completion(btmap, totalhits=0):
     btmap = open(btmap, 'r').read()
