@@ -25,6 +25,7 @@ class Osu:
         self.settings = dataIO.load_json("data/osu/settings.json")
         self.users = dataIO.load_json("data/osu/users.json")
         self.maps = dataIO.load_json("data/osu/maps/maps.json")
+        self.prevRecent = dataIO.load_json("data/osu/recentlist.json")
 
     async def message_triggered(self,message):
         if 'https://osu.ppy.sh/community/matches' in message.content:
@@ -56,8 +57,6 @@ class Osu:
                 message = msg.content.lower()
                 if message.startswith("y") or message.startswith("n"):
                     return True
-                else:
-                    return False
             res = await self.bot.wait_for_message(timeout=10,author=ctx.message.author,check=check)
             await self.bot.delete_message(msg1)
             if res is None:
@@ -90,7 +89,12 @@ class Osu:
                 return
             else:
                 username = self.users[ctx.message.author.id]
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:loading:491251984679305216>")
         res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
+        if len(res) == 0:
+            await self.bot.delete_message(loading)
+            await self.bot.send_message(ctx.message.channel,"No recent plays found for " + username + ". :x:")
+            return
         trycount = 0
         tempid = res[0]['beatmap_id']
         for i in res:
@@ -116,10 +120,11 @@ class Osu:
             iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
             iffcpp = round(float(iffcinfo['pp'][0]),2)
             f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** (" + str(iffcpp) + "pp for " + str(iffcacc) + "% FC) ▸ " + str(acc) + "%")
-        f.append("▸ " + str(res[0]['score']) + "▸ x" + str(res[0]['maxcombo']) + "/" + str(bmapinfo['max_combo']) + " ▸ [" + str(res[0]['count300']) + "/" + str(res[0]['count100']) + "/" + str(res[0]['count50']) + "/" + str(res[0]['countmiss']) + "]")
+        f.append("▸ " + str(res[0]['score']) + " ▸ x" + str(res[0]['maxcombo']) + "/" + str(bmapinfo['max_combo']) + " ▸ [" + str(res[0]['count300']) + "/" + str(res[0]['count100']) + "/" + str(res[0]['count50']) + "/" + str(res[0]['countmiss']) + "]")
         if totalhits is not None:
-            complete = round(bmapinfo['map_completion'],2)
-            f.append("▸ **Map Completion: **" + str(complete) + "%")
+            if type(bmapinfo['map_completion']) is float:
+                complete = round(bmapinfo['map_completion'],2)
+                f.append("▸ **Map Completion: **" + str(complete) + "%")
         mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
         if mods == "":
             mods = "NoMod"
@@ -129,7 +134,63 @@ class Osu:
         embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
         timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
         embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
+        await self.bot.delete_message(loading)
+        self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
+        dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
         await self.bot.send_message(ctx.message.channel,embed=embed)
+
+    @commands.command(pass_context=True)
+    async def compare(self,ctx,*username_list):
+        username = " ".join(username_list)
+        if username == "":
+            if ctx.message.author.id not in self.users:
+                await self.bot.say("**User not set! Please set your osu! username using -osuset [Username]! ❌**")
+                return
+            else:
+                username = self.users[ctx.message.author.id]
+
+        if ctx.message.channel.id not in self.prevRecent:
+            await self.bot.send_message(ctx.message.channel,"**No previous -recent command found for this channel.**")
+            return
+        mapid = self.prevRecent[ctx.message.channel.id]
+        scores = await use_api(self,ctx,"https://osu.ppy.sh/api/get_scores?k=" + self.settings['api_key'] + "&u=" + username + "&b=" + str(mapid))
+        if len(scores) == 0:
+            await self.bot.send_message(ctx.message.channel,"**No scores found for this map. :x:**")
+            return
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:loading:491251984679305216>")
+        f = []
+        count = 1
+        for i in scores:
+            mods = str(",".join(num_to_mod(i['enabled_mods'])))
+            if mods == "":
+                mods = "NoMod"
+            mapinfo = await get_pyttanko(map_id=mapid,mods=int(i['enabled_mods']))
+            f.append("**" + str(count) + "**: **" + mods + "** [**" + str(round(mapinfo['stars'],2)) + "***]")
+            rank = rank_to_emote(i['rank'])
+            pp = round(float(i['pp']),2)
+            acc = round(calculate_acc(i),2)
+            if int(i['perfect']) == 1:
+                f.append(" ▸ " + rank + " ▸ **" + str(pp) + "pp** ▸ " + str(acc) + "%")
+            else:
+                new300 = int(i['count300']) + int(i['countmiss'])
+                fcstats = { "count50":i['count50'],"count100":i['count100'],"count300":new300,"countmiss":0 }
+                fcacc = round(calculate_acc(fcstats),2)
+                fcinfo = await get_pyttanko(map_id=mapid,accs=[fcacc],mods=int(i['enabled_mods']),fc=True)
+                fcpp = round(float(fcinfo['pp'][0]),2)
+                f.append(" ▸ " + rank + " ▸ **" + str(pp) + "pp** (" + str(fcpp) + "pp for " + str(fcacc) + "% FC) ▸ " + str(acc) + "%")
+
+            f.append("▸ " + i['score'] + " ▸ x" + i['maxcombo'] + "/" + str(mapinfo['max_combo']) + " ▸ [" + i['count300'] + "/" + i['count100'] + "/" + i['count50'] + "/" + i['countmiss'] + "]")
+            timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(i['date'], '%Y-%m-%d %H:%M:%S'))
+            f.append("▸ Score set {} Ago".format(timeago))
+            count+=1
+        embed = discord.Embed(colour=0xD3D3D3,title="",description="\n".join(f))
+        embed.set_author(name=mapinfo['artist'] + " - " + mapinfo['title'] + "[" + mapinfo['version'] + "]",url="https://osu.ppy.sh/b/" + str(mapid),icon_url="https://a.ppy.sh/" + str(scores[0]['user_id']))
+        tempres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(mapid))
+        embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
+        # timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
+        # embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
+        await self.bot.send_message(ctx.message.channel,embed=embed)
+        await self.bot.delete_message(loading)
 
     @commands.command(pass_context=True)
     async def osu(self,ctx,*username_list):
@@ -317,7 +378,7 @@ async def use_api(self, ctx,url):
                 res = await channel.json()
                 return res
         except Exception as e:
-            await self.bot.send_message(ctx.message.channel,"Error: " + e)
+            await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
             return
 
 async def get_sr(self, mapID, mods):
@@ -480,7 +541,6 @@ async def plot_map_stars(beatmap, mods, color = 'blue'):
 
     img_id = random.randint(0, 50)
     filepath = "map_{}.png".format(img_id)
-
     fig.savefig(filepath, transparent=True)
     plt.close()
     upload = cloudinary.uploader.upload(filepath)
@@ -488,6 +548,7 @@ async def plot_map_stars(beatmap, mods, color = 'blue'):
     os.remove(filepath)
     # print(url)
     return url
+
 def num_to_mod(number):
     number = int(number)
     mod_list = []
@@ -528,6 +589,7 @@ def rank_to_emote(rank):
     if rank == "C": return "<:rankingC:507258310655868929>"
     if rank == "D": return "<:rankingD:507258338007056394>"
     if rank == "F": return "<:rankingF:507260433997103115>"
+
 def setup(bot):
     print("setting up...")
     n = Osu(bot)
