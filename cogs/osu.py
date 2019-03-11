@@ -9,6 +9,7 @@ import math
 import aiohttp
 import pyoppai
 import pyttanko
+import pycountry
 import datetime
 from pippy.beatmap import Beatmap
 from discord.ext import commands
@@ -30,6 +31,25 @@ class Osu:
     async def message_triggered(self,message):
         if 'https://osu.ppy.sh/community/matches' in message.content:
             url = message.content
+
+    @commands.command(pass_context=True)
+    async def testing(self,ctx):
+        embed=discord.Embed(title="Most recent play in osu! **Standard** by :flag_kr: **Eurus**", description="[PSYQUI - Hype feat. Such [Phosphene]](https://osu.ppy.sh/b/1662480&m=0)", color=0x00ffff)
+        embed.set_thumbnail(url="https://images-ext-2.discordapp.net/external/9ZDgW0wayk5tVPLA4w5MXQiPBor3i8EqL25M5OYwj9c/%3Futs%3D1544970369/https/b.ppy.sh/thumb/792606l.jpg")
+        staremote = star_to_emote(5.47)
+        rankemote = rank_to_emote("F")
+        hit300 = hit_to_emote("hit300")
+        hit100 = hit_to_emote("hit100")
+        hit50 = hit_to_emote("hit50")
+        hit0 = hit_to_emote("hit0")
+        embed.add_field(name="**Play Information**",value=staremote + " 5.47☆\n" + rankemote + " **92.30% NoMod**\n**Score:** 3,656,520\n**Total Hits:**" + hit300 + "249" + hit100 + "23" + hit50 + "0" + hit0 + "6", inline=False)
+        embed.add_field(name="**Beatmap Information**", value="Length: **5:01**, AR: **9.6**, OD: **9**, CS: **4**, BPM: **172**, HP: **6**", inline=False)
+        embed.add_field(name="**Performance**",value="**49.09pp** / 284.65pp",inline=True)
+        embed.add_field(name="**Combo**",value="**467x** / 1963x",inline=True)
+        embed.add_field(name="**Potential Performance**",value="**185.22pp** for **93.05%**",inline=True)
+        embed.add_field(name="**Map Completion**",value="**23.84%**",inline=True)
+        embed.set_footer(text="Eurus #2712 Global, #176 Korea, Republic of • Last Sunday at 11:25PM",icon_url="https://a.ppy.sh/3426414")
+        await self.bot.say(embed=embed)
 
     @commands.command(pass_context=True)
     async def mp(self,ctx,url):
@@ -89,11 +109,14 @@ class Osu:
                 return
             else:
                 username = self.users[ctx.message.author.id]
-        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:loading:491251984679305216>")
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
+        user = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+        if len(user) == 0:
+            await self.bot.edit_message(loading,"User not found! :x:")
+            return
         res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
         if len(res) == 0:
-            await self.bot.delete_message(loading)
-            await self.bot.send_message(ctx.message.channel,"No recent plays found for " + username + ". :x:")
+            await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
             return
         trycount = 0
         tempid = res[0]['beatmap_id']
@@ -102,42 +125,76 @@ class Osu:
                 trycount+=1
             else:
                 break
-        f = []
         acc = round(calculate_acc(res[0]),2)
-        if res[0]['rank'] == "F":
-            totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
-        else:
-            totalhits = None
-        bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
+        totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
+        apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
+        bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
         rank = rank_to_emote(res[0]['rank'])
+        semote = star_to_emote(bmapinfo['stars'])
+        srating = str(round(bmapinfo['stars'],2))
+        hit300 = hit_to_emote("hit300")
+        hit100 = hit_to_emote("hit100")
+        hit50 = hit_to_emote("hit50")
+        hit0 = hit_to_emote("hit0")
         pp = round(float(bmapinfo['pp'][0]),2)
-        if int(res[0]['perfect']) == 1:
-            f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** ▸ " + str(acc) + "%")
-        else:
-            new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
-            iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
-            iffcacc = round(calculate_acc(iffcstats),2)
-            iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
-            iffcpp = round(float(iffcinfo['pp'][0]),2)
-            f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** (" + str(iffcpp) + "pp for " + str(iffcacc) + "% FC) ▸ " + str(acc) + "%")
-        f.append("▸ " + str(res[0]['score']) + " ▸ x" + str(res[0]['maxcombo']) + "/" + str(bmapinfo['max_combo']) + " ▸ [" + str(res[0]['count300']) + "/" + str(res[0]['count100']) + "/" + str(res[0]['count50']) + "/" + str(res[0]['countmiss']) + "]")
-        if totalhits is not None:
-            if type(bmapinfo['map_completion']) is float:
-                complete = round(bmapinfo['map_completion'],2)
-                f.append("▸ **Map Completion: **" + str(complete) + "%")
         mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
         if mods == "":
             mods = "NoMod"
-        embed = discord.Embed(colour=0xD3D3D3,title="",description="\n".join(f))
-        embed.set_author(name=bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "] +" + mods + " [" + str(round(bmapinfo['stars'],2)) + "★]",url="https://osu.ppy.sh/b/" + str(res[0]['beatmap_id']),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
-        tempres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
-        embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
+        mapname = bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "]"
+        embed=discord.Embed(title="<a:mLoading:529680784194404352>Most recent play in osu! **Standard** by :flag_" + user[0]['country'].lower() + ": **" + username + "**",description="[" + mapname + "](https://osu.ppy.sh/b/" + res[0]['beatmap_id'] + ")", color=0x00ffff)
+        embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg")
+        embed.add_field(name="**Play Information**",value=semote + " " + srating + "☆\n" + rank + " **" + str(acc) + "% " + mods + "**\n**Try** #" + str(trycount) + "\n**Score:** " + format(int(res[0]['score']), ",d") + "\n**Total Hits:**" + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']), inline=False)
+        if "DT" in mods:
+            lnth = round(float(apibmapinfo[0]['total_length']) / 1.5)
+            bpm = round(float(apibmapinfo[0]['bpm']) * 1.5)
+        elif "HT" in mods:
+            lnth = round(float(apibmapinfo[0]['total_length']) / 0.75)
+            bpm = round(float(apibmapinfo[0]['bpm']) * 0.75)
+        else:
+            lnth = float(apibmapinfo[0]['total_length'])
+            bpm = apibmapinfo[0]['bpm']
+        minutes = int(lnth/60)
+        seconds = lnth % 60
+        hours = int(minutes/60)
+        minutes = minutes%60
+        if hours == 0:
+            length = str(minutes) + ":" + str(format(seconds,"02"))
+        else:
+            length = str(hours) + ":" + str(format(minutes,"02")) + ":" + str(format(seconds,"02"))
+        ar = bmapinfo['ar']
+        if ar == 9.666666666666668:
+            ar = 9.67
+        else:
+            ar = round(ar,1)
+
+        od = round(bmapinfo['od'],1)
+        cs = round(bmapinfo['cs'],1)
+        hp = round(bmapinfo['hp'],1)
+        embed.add_field(name="**Beatmap Information**", value="Length: **" + length + "**, AR: **" + str(ar) + "**, OD: **" + str(od) + "**, CS: **" + str(cs) + "**, BPM: **" + str(bpm) + "**, HP: **" + str(hp) + "**", inline=False)
+        new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
+        iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
+        iffcacc = round(calculate_acc(iffcstats),2)
+        iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
+        iffcpp = round(float(iffcinfo['pp'][0]),2)
+        pp = round(float(bmapinfo['pp'][0]),2)
+        embed.add_field(name="**Combo**",value="**" + str(res[0]['maxcombo']) + "** / " + str(bmapinfo['max_combo']) + "x",inline=True)
+        embed.add_field(name="**Performance**",value="**" + str(pp) + "pp** / " + str(iffcpp) + "pp for " + str(iffcacc) + "%",inline=True)
+        try:
+            complete = round(bmapinfo['map_completion'],2)
+            embed.add_field(name="**Map Completion**",value="**" + str(complete) + "%**",inline=True)
+        except Exception as e:
+            print(e)
+        countryObject = pycountry.countries.get(alpha_2=user[0]['country'])
+        print(countryObject)
+        try:
+            countryName = countryObject.official_name
+        except:
+            countryName = countryObject.name
         timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
-        embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
-        await self.bot.delete_message(loading)
+        embed.set_footer(text=username + " #" + user[0]['pp_rank'] + " Global, #" + user[0]['pp_country_rank'] + " " + countryName + " • {} Ago".format(timeago),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
+        await self.bot.edit_message(loading," ",embed=embed)
         self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
         dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
-        await self.bot.send_message(ctx.message.channel,embed=embed)
 
     @commands.command(pass_context=True)
     async def compare(self,ctx,*username_list):
@@ -148,7 +205,9 @@ class Osu:
                 return
             else:
                 username = self.users[ctx.message.author.id]
-
+        if ctx.message.author.id == "107663669302685696":
+            await self.bot.say("...>:|")
+            await asyncio.sleep(2)
         if ctx.message.channel.id not in self.prevRecent:
             await self.bot.send_message(ctx.message.channel,"**No previous -recent command found for this channel.**")
             return
@@ -157,18 +216,22 @@ class Osu:
         if len(scores) == 0:
             await self.bot.send_message(ctx.message.channel,"**No scores found for this map. :x:**")
             return
-        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:loading:491251984679305216>")
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
         f = []
         count = 1
         for i in scores:
             mods = str(",".join(num_to_mod(i['enabled_mods'])))
             if mods == "":
                 mods = "NoMod"
-            mapinfo = await get_pyttanko(map_id=mapid,mods=int(i['enabled_mods']))
+            acc = round(calculate_acc(i),2)
+            mapinfo = await get_pyttanko(map_id=mapid,accs=[acc],misses=int(i['countmiss']),mods=int(i['enabled_mods']),combo=int(i['maxcombo']))
             f.append("**" + str(count) + "**: **" + mods + "** [**" + str(round(mapinfo['stars'],2)) + "***]")
             rank = rank_to_emote(i['rank'])
-            pp = round(float(i['pp']),2)
-            acc = round(calculate_acc(i),2)
+            if i['pp'] is None:
+                pp = round(mapinfo['pp'][0],2)
+            else:
+                pp = round(float(i['pp']),2)
+
             if int(i['perfect']) == 1:
                 f.append(" ▸ " + rank + " ▸ **" + str(pp) + "pp** ▸ " + str(acc) + "%")
             else:
@@ -187,10 +250,7 @@ class Osu:
         embed.set_author(name=mapinfo['artist'] + " - " + mapinfo['title'] + "[" + mapinfo['version'] + "]",url="https://osu.ppy.sh/b/" + str(mapid),icon_url="https://a.ppy.sh/" + str(scores[0]['user_id']))
         tempres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(mapid))
         embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
-        # timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
-        # embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
-        await self.bot.send_message(ctx.message.channel,embed=embed)
-        await self.bot.delete_message(loading)
+        await self.bot.edit_message(loading," ",embed=embed)
 
     @commands.command(pass_context=True)
     async def osu(self,ctx,*username_list):
@@ -246,6 +306,7 @@ class Osu:
         if len(res) == 0: # If json is empty the user doesn't exist
             await self.bot.send_message(ctx.message.channel,"Player not found in the osu! database! :x:")
             return
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
         # temp2 = await self.bot.say("**osu! Top Plays for " + username + ":** ")
         numpage = ((len(res) - 1) / 5)
         #res[(i-1)*5:i*5]
@@ -296,6 +357,7 @@ class Osu:
             try:
                 if isStart:
                     isStart = False
+                    await self.bot.delete_message(loading)
                     msg = await self.bot.send_message(ctx.message.channel,embed=embed)
                     await self.bot.add_reaction(msg,"⬅")
                     await self.bot.add_reaction(msg,"➡")
@@ -448,7 +510,6 @@ async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, com
         bmap.aim_pp.append(aim_pp)
         bmap.speed_pp.append(speed_pp)
         bmap.acc_pp.append(acc_pp)
-
     if fc:
         n300, n100, n50 = pyttanko.acc_round(fc, len(bmap.hitobjects), 0)
         # print("-------------", n300, n100, n50)
@@ -481,11 +542,10 @@ async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, com
 
     if completion:
         try:
-            pyttanko_json['map_completion'] = await _map_completion(file_path, int(completion))
-        except Exception as e:
-            print(e)
-            pyttanko_json['map_completion'] = "Error: " + str(e)
-
+            print("Completion: " + str(completion) + " / " + str(len(bmap.hitobjects)))
+            pyttanko_json['map_completion'] = (completion / len(bmap.hitobjects)) * 100
+        except:
+            pyttanko_json['map_completion'] = "Error"
     if plot:
         #try:
         pyttanko_json['graph_url'] = await plot_map_stars(file_path, mods, color)
@@ -496,26 +556,6 @@ async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, com
 
     os.remove(file_path)
     return pyttanko_json
-
-async def _map_completion(btmap, totalhits=0):
-    btmap = open(btmap, 'r').read()
-    btmap = Beatmap(btmap)
-    good = btmap.parse()
-    if not good:
-        raise ValueError("Beatmap verify failed. "
-                         "Either beatmap is not for osu! standard, or it's malformed")
-        return
-    hitobj = []
-    if totalhits == 0:
-        totalhits = len(btmap.hit_objects)
-    numobj = totalhits - 1
-    num = len(btmap.hit_objects)
-    for objects in btmap.hit_objects:
-        hitobj.append(objects.time)
-    timing = int(hitobj[num - 1]) - int(hitobj[0])
-    point = int(hitobj[numobj]) - int(hitobj[0])
-    map_completion = (point / timing) * 100
-    return map_completion
 
 async def plot_map_stars(beatmap, mods, color = 'blue'):
     #try:
@@ -579,19 +619,75 @@ def num_to_mod(number):
 
     return mod_list
 
-def rank_to_emote(rank):
-    if rank == "XH": return "<:rankingSSH:507258449080352771>"
-    if rank == "X": return "<:rankingSS:507258425185533963>"
-    if rank == "SH": return "<:rankingSH:507258396009824274>"
-    if rank == "S": return "<:rankingS:507258370986737675>"
-    if rank == "A": return "<:rankingA:507258259921698816>"
-    if rank == "B": return "<:rankingB:507258284546457640>"
-    if rank == "C": return "<:rankingC:507258310655868929>"
-    if rank == "D": return "<:rankingD:507258338007056394>"
-    if rank == "F": return "<:rankingF:507260433997103115>"
+def star_to_emote(sr):
+    if sr <= 1.5: return "<:easys:524762856407957505>"
+    if sr <= 2.25: return "<:normals:524762905560875019>"
+    if sr <= 3.75: return "<:hards:524762888079015967>"
+    if sr <= 5.25: return "<:insanes:524762897235312670>"
+    if sr <= 6.75: return "<:experts:524762877912154142>"
+    return "<:expertpluss:524762868235894819>"
 
+def rank_to_emote(rank):
+    if rank == "XH": return "<:rankingSSH:524765519686008867>"
+    if rank == "X": return "<:rankingSS:524765487394062366>"
+    if rank == "SH": return "<:rankingSH:524765442456289290>"
+    if rank == "S": return "<:rankingS:524765397581430797>"
+    if rank == "A": return "<:rankingA:524765216093765653>"
+    if rank == "B": return "<:rankingB:524765259773509672>"
+    if rank == "C": return "<:rankingC:524765302064676864>"
+    if rank == "D": return "<:rankingD:524765348319330304>"
+    if rank == "F": return "<:rankingF:524971327640305664>"
+
+def hit_to_emote(hit):
+    if hit == "hit300": return "<:hit300:524769369532792833>"
+    if hit == "hit100": return "<:hit100:524769397840281601>"
+    if hit == "hit50": return "<:hit50:524769420887982081>"
+    if hit == "hit0": return "<:hit0:524769445936234496>"
 def setup(bot):
     print("setting up...")
     n = Osu(bot)
     bot.add_listener(n.message_triggered, "on_message")
     bot.add_cog(n)
+
+# ----------------------------DEPRECATED CODE----------------------------
+# ----------OLD RECENT
+# f = []
+# acc = round(calculate_acc(res[0]),2)
+# if res[0]['rank'] == "F":
+#     totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
+# else:
+#     totalhits = None
+# bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
+# rank = rank_to_emote(res[0]['rank'])
+# pp = round(float(bmapinfo['pp'][0]),2)
+# if int(res[0]['perfect']) == 1:
+#     f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** ▸ " + str(acc) + "%")
+# else:
+#     new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
+#     iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
+#     iffcacc = round(calculate_acc(iffcstats),2)
+#     iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
+#     iffcpp = round(float(iffcinfo['pp'][0]),2)
+#     f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** (" + str(iffcpp) + "pp for " + str(iffcacc) + "% FC) ▸ " + str(acc) + "%")
+# hit300 = hit_to_emote("hit300")
+# hit100 = hit_to_emote("hit100")
+# hit50 = hit_to_emote("hit50")
+# hit0 = hit_to_emote("hit0")
+# f.append("▸ " + str(res[0]['score']) + " ▸ x" + str(res[0]['maxcombo']) + "/" + str(bmapinfo['max_combo']) + " ▸ " + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']))
+# if totalhits is not None:
+#     if type(bmapinfo['map_completion']) is float:
+#         complete = round(bmapinfo['map_completion'],2)
+#         f.append("▸ **Map Completion: **" + str(complete) + "%")
+# mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
+# if mods == "":
+#     mods = "NoMod"
+# embed = discord.Embed(colour=0xD3D3D3,title="",description="\n".join(f))
+# embed.set_author(name=bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "] +" + mods + " [" + str(round(bmapinfo['stars'],2)) + "★]",url="https://osu.ppy.sh/b/" + str(res[0]['beatmap_id']),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
+# tempres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
+# embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
+# timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
+# embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
+# await self.bot.delete_message(loading)
+# self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
+# dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
+# await self.bot.send_message(ctx.message.channel,embed=embed)

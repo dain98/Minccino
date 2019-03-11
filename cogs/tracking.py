@@ -37,7 +37,7 @@ class Tracking:
     @osutrack.command(pass_context=True)
     async def add(self,ctx,*username_list):
         username = " ".join(username_list)
-        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+        res = await use_api(self,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
         if len(res) == 0:
             await self.bot.send_message(ctx.message.channel,"User not found in osu! database! :x:")
             return
@@ -78,8 +78,34 @@ class Tracking:
         f.append("```")
         await self.bot.send_message(ctx.message.channel,"\n".join(f))
 
-    async def trackloop(self):
-        return
+    async def track_loop(self):
+        # Save/Update top 50 information of a player
+        self.tracking = dataIO.load_json("data/osu/tracking.json")
+        count = 0
+        while self == self.bot.get_cog("Tracking"):
+            print("Test")
+            for username, data in self.tracking.items():
+                res = await use_api(self,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
+                if len(res) == 0:
+                    res2 = await use_api(self,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+                    if len(res2) == 0:
+                        self.tracking.pop(username, None)
+                        dataIO.save_json("data/osu/tracking.json",self.tracking)
+                        print("Removed " + username + " from json: either banned or renamed")
+                        return
+                if "topplays" in data:
+                    if res is data['topplays']:
+                        print("test2")
+                        return
+                self.tracking[username]['topplays'] = []
+                self.tracking[username]['topplays'].append(res)
+                dataIO.save_json("data/osu/tracking.json",self.tracking)
+                print("Updated " + username + " Count: " + str(count))
+                count+=1
+                if count == 60:
+                    print("API has reached its limit! Resetting...")
+                    await asyncio.sleep(60)
+                    count = 0
 
 def determine_plural(number):
     if int(number) != 1:
@@ -122,14 +148,17 @@ def calculate_acc(beatmap):
     user_score += float(beatmap['count50']) * 50.0
     return (float(user_score)/float(total_unscale_score)) * 100.0
 
-async def use_api(self,ctx,url):
+async def use_api(self,url):
     async with aiohttp.ClientSession(headers=self.header) as session:
         try:
             async with session.get(url) as channel:
                 res = await channel.json()
                 return res
+        except asyncio.CancelledError:
+            print("timed out")
+            return
         except Exception as e:
-            await self.bot.send_message(ctx.message.channel,"Error: " + e)
+            print("Error: " + e)
             return
 
 async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, completion=None, fc=None, plot = False, color = 'blue'):
@@ -271,8 +300,9 @@ def rank_to_emote(rank):
     if rank == "C": return "<:rankingC:507258310655868929>"
     if rank == "D": return "<:rankingD:507258338007056394>"
     if rank == "F": return "<:rankingF:507260433997103115>"
+
 def setup(bot):
-    loop = asyncio.get_event_loop()
     n = Tracking(bot)
-    loop.create_task(n.trackloop())
+    loop = asyncio.get_event_loop()
+    loop.create_task(n.track_loop())
     bot.add_cog(n)

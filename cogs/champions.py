@@ -54,7 +54,7 @@ class Champions:
             await self.bot.send_message(cnl,"Champion not found! :x:")
             return
         # Reset the template
-        loading = await self.bot.send_message(cnl,"**Working...** <a:loading:491251984679305216>")
+        loading = await self.bot.send_message(cnl,"**Working...** <a:mLoading:529680784194404352>")
         self.runestemplate = Image.open("data/league/runestemplate.png")
         options = {"champData" : "hashes"}
         res = py_gg.champions.specific(int(champID),options)
