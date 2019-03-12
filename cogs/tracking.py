@@ -33,7 +33,6 @@ class Tracking:
 
         if ctx.invoked_subcommand is None:
             await send_cmd_help(ctx)
-
     @osutrack.command(pass_context=True)
     async def add(self,ctx,*username_list):
         username = " ".join(username_list)
@@ -78,34 +77,42 @@ class Tracking:
         f.append("```")
         await self.bot.send_message(ctx.message.channel,"\n".join(f))
 
-    async def track_loop(self):
-        # Save/Update top 50 information of a player
-        self.tracking = dataIO.load_json("data/osu/tracking.json")
-        count = 0
-        while self == self.bot.get_cog("Tracking"):
-            print("Test")
-            for username, data in self.tracking.items():
-                res = await use_api(self,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
-                if len(res) == 0:
-                    res2 = await use_api(self,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
-                    if len(res2) == 0:
-                        self.tracking.pop(username, None)
-                        dataIO.save_json("data/osu/tracking.json",self.tracking)
-                        print("Removed " + username + " from json: either banned or renamed")
-                        return
-                if "topplays" in data:
-                    if res is data['topplays']:
-                        print("test2")
-                        return
-                self.tracking[username]['topplays'] = []
-                self.tracking[username]['topplays'].append(res)
-                dataIO.save_json("data/osu/tracking.json",self.tracking)
-                print("Updated " + username + " Count: " + str(count))
-                count+=1
-                if count == 60:
-                    print("API has reached its limit! Resetting...")
-                    await asyncio.sleep(60)
-                    count = 0
+    # async def track_loop(self):
+    #     # Save/Update top 50 information of a player
+    #     self.tracking = dataIO.load_json("data/osu/tracking.json")
+    #     count = 0
+    #     while self == self.bot.get_cog("Tracking"):
+    #         print("Test")
+    #         for username, data in self.tracking.items():
+    #             res = await use_api(self,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
+    #             if len(res) == 0:
+    #                 res2 = await use_api(self,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+    #                 if len(res2) == 0:
+    #                     self.tracking.pop(username, None)
+    #                     dataIO.save_json("data/osu/tracking.json",self.tracking)
+    #                     print("Removed " + username + " from json: either banned or renamed")
+    #                     return
+    #             if "topplays" in data:
+    #                 if res is data['topplays']:
+    #                     print("test2")
+    #                     return
+    #             self.tracking[username]['topplays'] = []
+    #             self.tracking[username]['topplays'].append(res)
+    #             dataIO.save_json("data/osu/tracking.json",self.tracking)
+    #             print("Updated " + username + " Count: " + str(count))
+    #             count+=1
+    #             if count == 800:
+    #                 print("API has reached its limit! Resetting...")
+    #                 await asyncio.sleep(60)
+    #                 count = 0
+
+def eventrank(event):
+    stri = "<img src='\/images\/S_small.png'\/> <b><a href='\/u\/3099689'>Xilver15<\/a><\/b> achieved <b>rank #2<\/b> on <a href='\/b\/261464?m=0'>Venetian Snares - Hajnal [broken]<\/a> (osu!)"
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', event)
+    event = cleantext.split('achieved rank #')
+    event = event[1].split('on')
+    return event[0]
 
 def determine_plural(number):
     if int(number) != 1:
@@ -303,6 +310,6 @@ def rank_to_emote(rank):
 
 def setup(bot):
     n = Tracking(bot)
-    loop = asyncio.get_event_loop()
-    loop.create_task(n.track_loop())
+    # loop = asyncio.get_event_loop()
+    # loop.create_task(n.track_loop())
     bot.add_cog(n)

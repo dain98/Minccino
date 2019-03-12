@@ -8,6 +8,7 @@ import re
 import math
 import aiohttp
 import pyoppai
+import decimal
 import pyttanko
 import pycountry
 import datetime
@@ -114,6 +115,10 @@ class Osu:
         if len(user) == 0:
             await self.bot.edit_message(loading,"User not found! :x:")
             return
+        userbest = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
+        if len(userbest) == 0:
+            await self.bot.edit_message(loading,"User not found! :x:")
+            return
         res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
         if len(res) == 0:
             await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
@@ -138,39 +143,29 @@ class Osu:
         hit0 = hit_to_emote("hit0")
         pp = round(float(bmapinfo['pp'][0]),2)
         mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
-        if mods == "":
-            mods = "NoMod"
+        if mods != "":
+            mods = "**" + mods + "**"
         mapname = bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "]"
+        maprank = None
+        if len(user[0]['events']) != 0:
+            for i in user[0]['events']:
+                if i['beatmap_id'] == res[0]['beatmap_id']:
+                    maprank = eventrank(i['display_html'])
+                    break
+        toprank = None
+        for idx,i in enumerate(userbest):
+            if i['beatmap_id'] == res[0]['beatmap_id']:
+                if i['score'] == res[0]['score']:
+                    toprank = idx + 1
+                    break
         embed=discord.Embed(title="<a:mLoading:529680784194404352>Most recent play in osu! **Standard** by :flag_" + user[0]['country'].lower() + ": **" + username + "**",description="[" + mapname + "](https://osu.ppy.sh/b/" + res[0]['beatmap_id'] + ")", color=0x00ffff)
         embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg")
-        embed.add_field(name="**Play Information**",value=semote + " " + srating + "☆\n" + rank + " **" + str(acc) + "% " + mods + "**\n**Try** #" + str(trycount) + "\n**Score:** " + format(int(res[0]['score']), ",d") + "\n**Total Hits:**" + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']), inline=False)
-        if "DT" in mods:
-            lnth = round(float(apibmapinfo[0]['total_length']) / 1.5)
-            bpm = round(float(apibmapinfo[0]['bpm']) * 1.5)
-        elif "HT" in mods:
-            lnth = round(float(apibmapinfo[0]['total_length']) / 0.75)
-            bpm = round(float(apibmapinfo[0]['bpm']) * 0.75)
-        else:
-            lnth = float(apibmapinfo[0]['total_length'])
-            bpm = apibmapinfo[0]['bpm']
-        minutes = int(lnth/60)
-        seconds = lnth % 60
-        hours = int(minutes/60)
-        minutes = minutes%60
-        if hours == 0:
-            length = str(minutes) + ":" + str(format(seconds,"02"))
-        else:
-            length = str(hours) + ":" + str(format(minutes,"02")) + ":" + str(format(seconds,"02"))
-        ar = bmapinfo['ar']
-        if ar == 9.666666666666668:
-            ar = 9.67
-        else:
-            ar = round(ar,1)
-
-        od = round(bmapinfo['od'],1)
-        cs = round(bmapinfo['cs'],1)
-        hp = round(bmapinfo['hp'],1)
-        embed.add_field(name="**Beatmap Information**", value="Length: **" + length + "**, AR: **" + str(ar) + "**, OD: **" + str(od) + "**, CS: **" + str(cs) + "**, BPM: **" + str(bpm) + "**, HP: **" + str(hp) + "**", inline=False)
+        f = rank + "  " + srating + "☆ " + mods + "\n **Accuracy: **" + str(acc) + "%\n**Score:** " + format(int(res[0]['score']),',d') + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']) + "\n**Try** #" + str(trycount)
+        if maprank != None:
+            f += ", **Rank**: #" + maprank
+        if toprank != None:
+            f += ", **Personal Best ** #" + str(toprank)
+        embed.add_field(name="**Play Information**",value=f, inline=False)
         new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
         iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
         iffcacc = round(calculate_acc(iffcstats),2)
@@ -180,10 +175,43 @@ class Osu:
         embed.add_field(name="**Combo**",value="**" + str(res[0]['maxcombo']) + "** / " + str(bmapinfo['max_combo']) + "x",inline=True)
         embed.add_field(name="**Performance**",value="**" + str(pp) + "pp** / " + str(iffcpp) + "pp for " + str(iffcacc) + "%",inline=True)
         try:
-            complete = round(bmapinfo['map_completion'],2)
-            embed.add_field(name="**Map Completion**",value="**" + str(complete) + "%**",inline=True)
+            if res[0]['rank'] == "F":
+                complete = round(bmapinfo['map_completion'],2)
+                embed.add_field(name="**Map Completion**",value="**" + str(complete) + "%**",inline=True)
         except Exception as e:
             print(e)
+        if "DT" in mods:
+            lnth = round(float(apibmapinfo[0]['total_length']) / 1.5)
+            bpm = str(round(float(apibmapinfo[0]['bpm']) * 1.5,2)).rstrip("0")
+        elif "HT" in mods:
+            lnth = round(float(apibmapinfo[0]['total_length']) / 0.75)
+            bpm = str(round(float(apibmapinfo[0]['bpm']) * 0.75,2)).rstrip("0")
+        else:
+            lnth = float(apibmapinfo[0]['total_length'])
+            bpm = str(round(float(apibmapinfo[0]['bpm']),2)).rstrip("0")
+            if bpm.endswith("."):
+                bpm = bpm[:-1]
+        minutes = int(lnth/60)
+        seconds = lnth % 60
+        hours = int(minutes/60)
+        minutes = minutes%60
+        if hours == 0:
+            length = str(minutes) + ":" + str(int(seconds))
+        else:
+            length = str(hours) + ":" + str(int(minutes)) + ":" + str(int(seconds))
+        ar = str(round(bmapinfo['ar'],2)).rstrip("0")
+        if ar.endswith("."):
+            ar = ar[:-1]
+        od = str(round(bmapinfo['od'],2)).rstrip("0")
+        if od.endswith("."):
+            od = od[:-1]
+        cs = str(round(bmapinfo['cs'],2)).rstrip("0")
+        if cs.endswith("."):
+            cs = cs[:-1]
+        hp = str(round(bmapinfo['hp'],2)).rstrip("0")
+        if hp.endswith("."):
+            hp = hp[:-1]
+        embed.add_field(name="**Beatmap Information**", value="Length: **" + length + "**, AR: **" + str(ar) + "**, OD: **" + str(od) + "**, CS: **" + str(cs) + "**, BPM: **" + str(bpm) + "**, HP: **" + str(hp) + "**", inline=False)
         countryObject = pycountry.countries.get(alpha_2=user[0]['country'])
         print(countryObject)
         try:
@@ -391,6 +419,33 @@ class Osu:
                 temp2 = await self.bot.say("**I need permission to edit messages! (Server Settings -> Roles -> [Bot Role] -> Manage Messages -> On)**")
                 await asyncio.sleep(2)
                 return
+
+def format_number(num):
+    try:
+        dec = decimal.Decimal(num)
+    except:
+        return 'bad'
+    tup = dec.as_tuple()
+    delta = len(tup.digits) + tup.exponent
+    digits = ''.join(str(d) for d in tup.digits)
+    if delta <= 0:
+        zeros = abs(tup.exponent) - len(tup.digits)
+        val = '0.' + ('0'*zeros) + digits
+    else:
+        val = digits[:delta] + ('0'*tup.exponent) + '.' + digits[delta:]
+    val = val.rstrip('0')
+    if val[-1] == '.':
+        val = val[:-1]
+    if tup.sign:
+        return '-' + val
+    return val
+
+def eventrank(event):
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', event)
+    event = cleantext.split('achieved rank #')
+    event = event[1].split('on')
+    return event[0]
 
 def determine_plural(number):
     if int(number) != 1:
