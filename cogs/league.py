@@ -9,7 +9,6 @@ import aiohttp
 import json
 import math
 from discord.ext import commands
-import py_gg
 
 class League:
     """The main League of Legends cog"""
@@ -36,7 +35,7 @@ class League:
                 username = username.replace("+"," ")
             if '%20' in username:
                 username = username.replace("%20"," ")
-            await self.bot.summoner.callback(self,region,username)
+            # await self.bot.summoner.callback(self,region,username)
 
     @commands.command(pass_context=True)
     async def summoner(self,ctx,region,*summname_list):
@@ -220,6 +219,7 @@ async def getjson(self,url):
         except Exception as e:
             await self.bot.send_message(cnl,"Error: " + str(e))
             return None
+
 def setup(bot):
     print("setting up...")
     n = League(bot)

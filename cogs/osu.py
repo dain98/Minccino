@@ -9,10 +9,15 @@ import math
 import aiohttp
 import pyoppai
 import decimal
+import textwrap
+import random
 import pyttanko
-# import aggdraw
+import aggdraw
+import time
 import pycountry
+from collections import OrderedDict
 import datetime
+from pbwrap import Pastebin
 from pippy.beatmap import Beatmap
 from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
@@ -24,17 +29,55 @@ class Osu:
     def __init__(self,bot):
         self.bot = bot
         self.header = {"User-Agent": "User_Agent"}
+        self.pasteKey = dataIO.load_json("data/apikeys/pastebinkey.json")
+        self.pb = Pastebin(self.pasteKey['api_dev_key'])
         self.template = Image.open("data/osu/template.png")
         self.recenttemplate = Image.open("data/osu/templates/recent.png")
         self.settings = dataIO.load_json("data/osu/settings.json")
         self.users = dataIO.load_json("data/osu/users.json")
         self.maps = dataIO.load_json("data/osu/maps/maps.json")
         self.prevRecent = dataIO.load_json("data/osu/recentlist.json")
-
-    # async def message_triggered(self,message):
+        self.sample = dataIO.load_json("data/osu/sample.json")
 
     @commands.command(pass_context=True)
-    async def mp(self,ctx,url):
+    @checks.is_owner()
+    async def paste(self,ctx):
+        """Testing pastebin pasting"""
+        self.pb.authenticate(self.pasteKey['username'],self.pasteKey['password'])
+        # f.append("----------------------------------------------------------------------")
+        # f.append("-                            MATCH DETAILS                           -")
+        # f.append("----------------------------------------------------------------------")
+        # f.append("Tournament: ESF").format()
+        # f.append("BITPOF Lite vs. tangerines")
+        # f.append("Lobby started: March 23, 2019 @11:52PM")
+        # f.append("Match MVP: DigitalHypno - 2.70")
+        # f.append("Match ACE: Dain - 2.65")
+        # f.append("----------------------------------------------------------------------")
+        # f.append("#1: DigitalHypno - 2.70")
+        # f.append("#2: Dain         - 2.69")
+        # f.append("#3: Conyoh       - 2.68")
+        # f.append("#4: mook         - 2.67")
+        # f.append("#5: YokesPai     - 2.66")
+        # f.append("#6: M I L E S    - 2.65")
+        # f = "\n".join(f)
+        tname = "ESF"
+        team1 = "BITPOF Lite"
+        team2 = "tangerines"
+        time = "March 23, 2019 @11:52PM"
+        mvp = "DigitalHypno"
+        mvpoint = 2.70
+        ace = "Dain"
+        acepoint = 2.69
+        playerlist = ['DigitalHypno','Dain','Conyoh','mook','YokesPai','M I L E S']
+        pointlist = [2.70,2.69,2.68,2.67,2.66,2.65]
+        f = paste_format(tname,team1,team2,time,mvp,mvpoint,ace,acepoint,playerlist,pointlist)
+        res = self.pb.create_paste(f,0,'Match Costs for {}: ({}) vs ({})'.format(tname,team1,team2),'N',None)
+        await self.bot.say(res)
+
+    @commands.command(pass_context=True)
+    @checks.is_owner()
+    async def mp(self,ctx,url,warmups=2):
+        """***UNDER CONSTRUCTION***"""
         if 'https://osu.ppy.sh/community/matches' in url:
             try:
                 url = url.split("matches/")
@@ -46,9 +89,23 @@ class Osu:
         if res['match'] == 0:
             await self.bot.say("Invalid URL! :x:")
             return
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
+
+    @commands.command(pass_context=True)
+    async def bws(self,ctx,rank,bcount):
+        """Check your Badge Weighted Seeding rank. -bws [rank] [badgecount]"""
+        bcount = int(bcount)
+        rank = int(rank)
+        newrank = bcount ** 2
+        newrank = 0.9937 ** newrank
+        newrank = rank ** newrank
+        newrank = round(newrank)
+        await self.bot.send_message(ctx.message.channel,"Previous Rank: **" + str(rank) + "**    Badge Count: **" + str(bcount) + "**")
+        await self.bot.send_message(ctx.message.channel,"Rank after BWS: **" + str(newrank) + "**")
 
     @commands.command(pass_context=True)
     async def petbws(self,ctx,rank,bcount):
+        """Check your Badge Weighted Seeding rank for Pls Enjoy Tournament. -petbws [rank] [badgecount]"""
         bcount = int(bcount)
         rank = int(rank)
         newrank = 1 + bcount
@@ -62,18 +119,8 @@ class Osu:
         await self.bot.send_message(ctx.message.channel,"Rank after BWS: **" + str(newrank) + "**")
 
     @commands.command(pass_context=True)
-    async def bws(self,ctx,rank,bcount):
-        bcount = int(bcount)
-        rank = int(rank)
-        newrank = bcount ** 2
-        newrank = 0.9937 ** newrank
-        newrank = rank ** newrank
-        newrank = round(newrank)
-        await self.bot.send_message(ctx.message.channel,"Previous Rank: **" + str(rank) + "**    Badge Count: **" + str(bcount) + "**")
-        await self.bot.send_message(ctx.message.channel,"Rank after BWS: **" + str(newrank) + "**")
-
-    @commands.command(pass_context=True)
     async def osuset(self,ctx,*username_list):
+        """Set your osu! username."""
         username = " ".join(username_list)
         if username == "":
             await self.bot.say("Username can't be blank!")
@@ -108,7 +155,8 @@ class Osu:
             await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
 
     @commands.command(pass_context=True)
-    async def newrecent(self,ctx,*username_list):
+    async def recent(self,ctx,*username_list):
+        """***Get your most recent score!***"""
         username = " ".join(username_list)
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -140,20 +188,16 @@ class Osu:
         totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
         apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
         bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
+        complete = round(bmapinfo['map_completion'],2)
         srating = str(round(bmapinfo['stars'],2))
         pp = round(float(bmapinfo['pp'][0]),2)
         mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
         score = format(int(res[0]['score']),',d')
         if mods != "":
             mods = "+" + mods
-        titleText = bmapinfo['artist'] + " - " + bmapinfo['title']
+        titleText = "{} - {}".format(bmapinfo['artist'],bmapinfo['title'])
         subtitleText = "[" + bmapinfo['version']
-        maprank = None
-        if len(user[0]['events']) != 0:
-            for i in user[0]['events']:
-                if i['beatmap_id'] == res[0]['beatmap_id']:
-                    maprank = eventrank(i['display_html'])
-                    break
+        maprank = await mrank(self,ctx,res[0]['beatmap_id'],user[0]['user_id'])
         toprank = None
         for idx,i in enumerate(userbest):
             if i['beatmap_id'] == res[0]['beatmap_id']:
@@ -162,18 +206,20 @@ class Osu:
                     break
         self.recenttemplate = Image.open("data/osu/templates/recent.png")
         draw = ImageDraw.Draw(self.recenttemplate)
+        adraw = aggdraw.Draw(self.recenttemplate)
         titleFont = ImageFont.truetype("data/fonts/NotoSansSemiBold.otf",16)
         subtitleFont = ImageFont.truetype("data/fonts/NotoSansRegular.otf",12)
-        scoreFont = ImageFont.truetype("data/fonts/NotoSansLight.otf",15)
-        # hitFont = aggdraw.Font((0,0,0), "data/fonts/NotoSansRegular.otf",size=13,opacity=255)
-        hitFont = ImageFont.truetype("data/fonts/NotoSansRegular.otf",14)
-        urllib.request.urlretrieve("https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg",'data/osu/cache/mapimage.png')
-        mapimage = Image.open("data/osu/cache/mapimage.png")
-        mapimage.thumbnail((104,78),Image.ANTIALIAS)
-        self.recenttemplate.paste(mapimage,(498,7))
-        rankimage = Image.open("data/osu/rankletters/rank" + res[0]['rank'] + ".png")
-        rankimage.thumbnail((100,100),Image.ANTIALIAS)
-        self.recenttemplate.paste(rankimage,(385,63),rankimage)
+        defaultFont = ImageFont.truetype("data/fonts/NotoSansLight.otf",15)
+        defaultBoldFont = ImageFont.truetype("data/fonts/NotoSansSemiBold.otf",15)
+        smallFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansLight.otf",size=12,opacity=255)
+        smalllFont = ImageFont.truetype("data/fonts/NotoSansLight.otf",12)
+        smallBoldFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansSemiBold.otf",size=12,opacity=255)
+        smallBolddFont = ImageFont.truetype("data/fonts/NotoSansSemiBold.otf",12)
+        smallestFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansLight.otf",size=10,opacity=255)
+        smallesttFont = ImageFont.truetype("data/fonts/NotoSansLight.otf",10)
+        tryFont = ImageFont.truetype("data/fonts/NotoSansLight.otf",20)
+        hittFont = ImageFont.truetype("data/fonts/NotoSansRegular.otf",10)
+        hitFont = aggdraw.Font((255,255,255), "data/fonts/NotoSansRegular.otf",size=12,opacity=255)
         titleCutoff = False
         while titleFont.getsize(titleText)[0] > 448:
             titleText = titleText[:-1]
@@ -181,105 +227,89 @@ class Osu:
         if titleCutoff:
             titleText += "..."
         subtitleText += "] " + mods
-        # Draw name of map
-        draw.text((18,13),titleText,font=titleFont,fill=(255,255,255))
-        draw.text((18,34),subtitleText,font=subtitleFont,fill=(255,255,255))
-        # Draw score
-        draw.text((19,79),score,font=scoreFont,fill=(255,255,255))
+        # Draw User Info
+        adraw.text((498,184),"{}pp".format(user[0]['pp_raw']),smallFont)
+        adraw.text((498,198),"#{}, {} #{}".format(user[0]['pp_rank'],user[0]['country'],user[0]['pp_country_rank']),smallFont)
+        timeago = "Score set {}ago.".format(time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S')))
+        tago = textwrap.wrap(timeago,width=22)
+        print(tago)
+        h = 268
+        for line in tago:
+            adraw.text((498,h),str(line),smallestFont)
+            h += 14
+        # Draw Combo
+        w, h = draw.textsize(res[0]['maxcombo'],smalllFont)
+        width = 20
+        height = 190
+        tempFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansLight.otf",size=14,opacity=255)
+        tempFontSize = ImageFont.truetype("data/fonts/NotoSansLight.otf",14)
+        tempBoldFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansSemiBold.otf",size=14,opacity=255)
+        tempBoldFontSize = ImageFont.truetype("data/fonts/NotoSansSemiBold.otf",14)
+        adraw.text((width,height),str(res[0]['maxcombo']),smallFont)
+        w2, h2 = draw.textsize(str(bmapinfo['max_combo']),smallBolddFont)
+        width2 = width + w + 12
+        height2 = (414-h2)/2
+        pen = aggdraw.Pen("white",0.8)
+        adraw.line((width2,height+4,width+w,height2+h2),pen)
+        adraw.text((width2,height2),str(bmapinfo['max_combo']),smallBoldFont)
         # Draw 300s 100s 50s and misses
-        w, h = draw.textsize(res[0]['count300'],font=subtitleFont)
-        draw.text(((290-w)/2,(248-h)/2),str(res[0]['count300']) + " ",font=hitFont,fill=(255,255,255))
-        w, h = draw.textsize(res[0]['count100'],font=subtitleFont)
-        draw.text(((290-w)/2,(304-h)/2),res[0]['count100'],font=hitFont,fill=(255,255,255))
-        w, h = draw.textsize(res[0]['count50'],font=subtitleFont)
-        draw.text(((472-w)/2,(248-h)/2),str(res[0]['count50']) + " ",font=hitFont,fill=(255,255,255))
-        w, h = draw.textsize(res[0]['countmiss'],font=subtitleFont)
-        draw.text(((472-w)/2,(304-h)/2),res[0]['countmiss'],font=hitFont,fill=(255,255,255))
-
-        self.recenttemplate.save("data/osu/cache/temp_rtemplate.png")
-        await self.bot.send_file(ctx.message.channel,'data/osu/cache/temp_rtemplate.png')
-        await self.bot.delete_message(loading)
-        os.remove('data/osu/cache/temp_rtemplate.png')
-
-    @commands.command(pass_context=True)
-    async def recent(self,ctx,*username_list):
-        username = " ".join(username_list)
-        if username == "":
-            if ctx.message.author.id not in self.users:
-                await self.bot.say("**User not set! Please set your osu! username using -osuset [Username]! ❌**")
-                return
-            else:
-                username = self.users[ctx.message.author.id]
-        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
-        user = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
-        if len(user) == 0:
-            await self.bot.edit_message(loading,"User not found! :x:")
-            return
-        userbest = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
-        if len(userbest) == 0:
-            await self.bot.edit_message(loading,"User not found! :x:")
-            return
-        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
-        if len(res) == 0:
-            await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
-            return
-        trycount = 0
-        tempid = res[0]['beatmap_id']
-        for i in res:
-            if i['beatmap_id'] == tempid:
-                trycount+=1
-            else:
-                break
-        acc = round(calculate_acc(res[0]),2)
-        totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
-        apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
-        bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
-        rank = rank_to_emote(res[0]['rank'])
-        semote = star_to_emote(bmapinfo['stars'])
-        srating = str(round(bmapinfo['stars'],2))
-        hit300 = hit_to_emote("hit300")
-        hit100 = hit_to_emote("hit100")
-        hit50 = hit_to_emote("hit50")
-        hit0 = hit_to_emote("hit0")
-        pp = round(float(bmapinfo['pp'][0]),2)
-        mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
-        if mods != "":
-            mods = "**" + mods + "**"
-        mapname = bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "]"
-        maprank = None
-        if len(user[0]['events']) != 0:
-            for i in user[0]['events']:
-                if i['beatmap_id'] == res[0]['beatmap_id']:
-                    maprank = eventrank(i['display_html'])
-                    break
-        toprank = None
-        for idx,i in enumerate(userbest):
-            if i['beatmap_id'] == res[0]['beatmap_id']:
-                if i['score'] == res[0]['score']:
-                    toprank = idx + 1
-                    break
-        embed=discord.Embed(title="<a:mLoading:529680784194404352>Most recent play in osu! **Standard** by :flag_" + user[0]['country'].lower() + ": **" + username + "**",description="[" + mapname + "](https://osu.ppy.sh/b/" + res[0]['beatmap_id'] + ")", color=0x00ffff)
-        embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg")
-        f = rank + "  " + srating + "☆ " + mods + "\n**Accuracy: **" + str(acc) + "%\n**Score:** " + format(int(res[0]['score']),',d') + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']) + "\n**Try** #" + str(trycount)
-        if maprank != None:
-            f += ", **Rank**: #" + maprank
-        if toprank != None:
-            f += ", **Personal Best ** #" + str(toprank)
-        embed.add_field(name="**Play Information**",value=f, inline=False)
+        w, h = draw.textsize(res[0]['count300'],font=hittFont)
+        adraw.text(((290-w)/2,(244-h)/2),str(res[0]['count300']),hitFont)
+        w, h = draw.textsize(res[0]['count50'],font=hittFont)
+        adraw.text(((290-w)/2,(300-h)/2),res[0]['count50'],hitFont)
+        w, h = draw.textsize(res[0]['count100'],font=hittFont)
+        adraw.text(((478-w)/2,(244-h)/2),str(res[0]['count100']),hitFont)
+        w, h = draw.textsize(res[0]['countmiss'],font=hittFont)
+        adraw.text(((478-w)/2,(300-h)/2),res[0]['countmiss'],hitFont)
+        # Draw if FC Stats
         new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
         iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
         iffcacc = round(calculate_acc(iffcstats),2)
         iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
         iffcpp = round(float(iffcinfo['pp'][0]),2)
-        pp = round(float(bmapinfo['pp'][0]),2)
-        embed.add_field(name="**Combo**",value="**" + str(res[0]['maxcombo']) + "** / " + str(bmapinfo['max_combo']) + "x",inline=True)
-        embed.add_field(name="**Performance**",value="**" + str(pp) + "pp** / " + str(iffcpp) + "pp for " + str(iffcacc) + "%",inline=True)
-        try:
-            if res[0]['rank'] == "F":
-                complete = round(bmapinfo['map_completion'],2)
-                embed.add_field(name="**Map Completion**",value="**" + str(complete) + "%**",inline=True)
-        except Exception as e:
-            print(e)
+        w, h = draw.textsize(str(iffcacc),smallesttFont)
+        adraw.text(((790-w)/2,(530-h)/2),"IF FC WITH {}%".format(iffcacc),smallestFont)
+        # Draw URL
+        adraw.text((13,282),"Generated using Minccino: https://github.com/dain98/Minccino",smallestFont)
+        # Flush aggdraw
+        adraw.flush()
+        # Draw User Image
+        urllib.request.urlretrieve("https://a.ppy.sh/{}".format(user[0]['user_id']),"data/osu/cache/user_{}.png".format(user[0]['user_id']))
+        userimage = Image.open("data/osu/cache/user_{}.png".format(user[0]['user_id']))
+        userimage.thumbnail((54,54),Image.ANTIALIAS)
+        self.recenttemplate.paste(userimage,(525,107))
+        os.remove("data/osu/cache/user_{}.png".format(user[0]['user_id']))
+        # Draw Beatmap Image
+        urllib.request.urlretrieve("https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg",'data/osu/cache/map_{}.png'.format(apibmapinfo[0]['beatmapset_id']))
+        mapimage = Image.open("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
+        mapimage.thumbnail((104,78),Image.ANTIALIAS)
+        self.recenttemplate.paste(mapimage,(498,7))
+        os.remove("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
+        rankimage = Image.open("data/osu/rankletters/rank" + res[0]['rank'] + ".png")
+        rankimage.thumbnail((100,100),Image.ANTIALIAS)
+        self.recenttemplate.paste(rankimage,(385,63),rankimage)
+        # Draw User Info
+        draw.text((498,166),"{}".format(user[0]['username']),font=defaultBoldFont,fill=(255,255,255))
+        # Draw name of map
+        draw.text((18,13),titleText,font=titleFont,fill=(255,255,255))
+        draw.text((18,34),subtitleText,font=subtitleFont,fill=(255,255,255))
+        # Draw score
+        if maprank is not None:
+            score = score + " Rank #{}".format(maprank)
+            if toprank is not None:
+                score = score + ", Personal Best #{}!".format(toprank)
+        elif toprank is not None:
+            score = score + " Personal Best #{}!".format(toprank)
+        draw.text((19,79),score,font=defaultFont,fill=(255,255,255))
+        # Draw Difficulty
+        draw.text((284,139),"{}*".format(srating),font=defaultBoldFont,fill=(255,255,255))
+        # Draw Trycount
+        draw.text((288,79),"#{}".format(trycount),font=defaultFont,fill=(255,255,255))
+        # Draw Map completion
+        draw.text((242,193),"{:.2f}%".format(complete),font=defaultBoldFont,fill=(255,255,255))
+        # Draw Accuracy
+        draw.text((150,193),"{:.2f}%".format(acc),font=defaultBoldFont,fill=(255,255,255))
+        # Draw Beatmap information
         if "DT" in mods:
             lnth = round(float(apibmapinfo[0]['total_length']) / 1.5)
             bpm = str(round(float(apibmapinfo[0]['bpm']) * 1.5,2)).rstrip("0")
@@ -291,15 +321,19 @@ class Osu:
             bpm = str(round(float(apibmapinfo[0]['bpm']),2)).rstrip("0")
             if bpm.endswith("."):
                 bpm = bpm[:-1]
-        minutes = int(lnth/60)
-        seconds = lnth % 60
-        hours = int(minutes/60)
-        minutes = minutes%60
-        if hours == 0:
-            length = str(minutes) + ":" + str(int(seconds))
-        else:
-            length = str(hours) + ":" + str(int(minutes)) + ":" + str(int(seconds))
+        length = str(datetime.timedelta(minutes=lnth))
+        length = length[:-3]
+        # minutes = int(lnth/60)
+        # seconds = lnth % 60
+        # hours = int(minutes/60)
+        # minutes = minutes%60
+        # if hours == 0:
+        #     length = str(minutes) + ":" + str(int(seconds))
+        # else:
+        #     length = str(hours) + ":" + str(int(minutes)) + ":" + str(int(seconds))
         ar = str(round(bmapinfo['ar'],2)).rstrip("0")
+        if bpm.endswith("."):
+            bpm = bpm[:-1]
         if ar.endswith("."):
             ar = ar[:-1]
         od = str(round(bmapinfo['od'],2)).rstrip("0")
@@ -311,21 +345,147 @@ class Osu:
         hp = str(round(bmapinfo['hp'],2)).rstrip("0")
         if hp.endswith("."):
             hp = hp[:-1]
-        embed.add_field(name="**Beatmap Information**", value="Length: **" + length + "**, AR: **" + str(ar) + "**, OD: **" + str(od) + "**, CS: **" + str(cs) + "**, BPM: **" + str(bpm) + "**, HP: **" + str(hp) + "**", inline=False)
-        countryObject = pycountry.countries.get(alpha_2=user[0]['country'])
-        print(countryObject)
-        try:
-            countryName = countryObject.official_name
-        except:
-            countryName = countryObject.name
-        timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
-        embed.set_footer(text=username + " #" + user[0]['pp_rank'] + " Global, #" + user[0]['pp_country_rank'] + " " + countryName + " • {} Ago".format(timeago),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
-        await self.bot.edit_message(loading," ",embed=embed)
+        draw.text((20,255),"Length: {}, AR {}, OD {}, CS {}, HP {}, {} BPM".format(length,ar,od,cs,hp,bpm),font=smalllFont,fill=(255,255,255))
+        # Draw Performance
+        w, h = draw.textsize(str(pp),font=defaultFont)
+        draw.text(((832-w)/2,(406-h)/2),"{}pp".format(pp),font=defaultFont,fill=(255,255,255))
+        w, h = draw.textsize(str(iffcpp),font=defaultFont)
+        draw.text(((832-w)/2,(496-h)/2),"{}pp".format(iffcpp),font=defaultFont,fill=(255,255,255))
+        code = random.randint(100000000,999999999)
+        self.recenttemplate.save("data/osu/cache/score_{}.png".format(code))
+        await self.bot.send_file(ctx.message.channel,'data/osu/cache/score_{}.png'.format(code))
+        await self.bot.delete_message(loading)
+        os.remove('data/osu/cache/score_{}.png'.format(code))
         self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
         dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
 
+    # @commands.command(pass_context=True)
+    # async def recent(self,ctx,*username_list):
+    #     """Show your most recent osu! Standard play."""
+    #     username = " ".join(username_list)
+    #     if username == "":
+    #         if ctx.message.author.id not in self.users:
+    #             await self.bot.say("**User not set! Please set your osu! username using -osuset [Username]! ❌**")
+    #             return
+    #         else:
+    #             username = self.users[ctx.message.author.id]
+    #     loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
+    #     user = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+    #     if len(user) == 0:
+    #         await self.bot.edit_message(loading,"User not found! :x:")
+    #         return
+    #     userbest = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
+    #     if len(userbest) == 0:
+    #         await self.bot.edit_message(loading,"User not found! :x:")
+    #         return
+    #     res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
+    #     if len(res) == 0:
+    #         await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
+    #         return
+    #     trycount = 0
+    #     tempid = res[0]['beatmap_id']
+    #     for i in res:
+    #         if i['beatmap_id'] == tempid:
+    #             trycount+=1
+    #         else:
+    #             break
+    #     acc = round(calculate_acc(res[0]),2)
+    #     totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
+    #     apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
+    #     bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
+    #     rank = rank_to_emote(res[0]['rank'])
+    #     semote = star_to_emote(bmapinfo['stars'])
+    #     srating = str(round(bmapinfo['stars'],2))
+    #     hit300 = hit_to_emote("hit300")
+    #     hit100 = hit_to_emote("hit100")
+    #     hit50 = hit_to_emote("hit50")
+    #     hit0 = hit_to_emote("hit0")
+    #     pp = round(float(bmapinfo['pp'][0]),2)
+    #     mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
+    #     if mods != "":
+    #         mods = "**" + mods + "**"
+    #     mapname = bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "]"
+    #     maprank = None
+    #     if len(user[0]['events']) != 0:
+    #         for i in user[0]['events']:
+    #             if i['beatmap_id'] == res[0]['beatmap_id']:
+    #                 maprank = eventrank(i['display_html'])
+    #                 break
+    #     toprank = None
+    #     for idx,i in enumerate(userbest):
+    #         if i['beatmap_id'] == res[0]['beatmap_id']:
+    #             if i['score'] == res[0]['score']:
+    #                 toprank = idx + 1
+    #                 break
+    #     embed=discord.Embed(title="<a:mLoading:529680784194404352>Most recent play in osu! **Standard** by :flag_" + user[0]['country'].lower() + ": **" + username + "**",description="[" + mapname + "](https://osu.ppy.sh/b/" + res[0]['beatmap_id'] + ")", color=0x00ffff)
+    #     embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg")
+    #     f = rank + "  " + srating + "☆ " + mods + "\n**Accuracy: **" + str(acc) + "%\n**Score:** " + format(int(res[0]['score']),',d') + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']) + "\n**Try** #" + str(trycount)
+    #     if maprank != None:
+    #         f += ", **Rank**: #" + maprank
+    #     if toprank != None:
+    #         f += ", **Personal Best ** #" + str(toprank)
+    #     embed.add_field(name="**Play Information**",value=f, inline=False)
+    #     new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
+    #     iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
+    #     iffcacc = round(calculate_acc(iffcstats),2)
+    #     iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
+    #     iffcpp = round(float(iffcinfo['pp'][0]),2)
+    #     pp = round(float(bmapinfo['pp'][0]),2)
+    #     embed.add_field(name="**Combo**",value="**" + str(res[0]['maxcombo']) + "** / " + str(bmapinfo['max_combo']) + "x",inline=True)
+    #     embed.add_field(name="**Performance**",value="**" + str(pp) + "pp** / " + str(iffcpp) + "pp for " + str(iffcacc) + "%",inline=True)
+    #     try:
+    #         if res[0]['rank'] == "F":
+    #             complete = round(bmapinfo['map_completion'],2)
+    #             embed.add_field(name="**Map Completion**",value="**" + str(complete) + "%**",inline=True)
+    #     except Exception as e:
+    #         print(e)
+    #     if "DT" in mods:
+    #         lnth = round(float(apibmapinfo[0]['total_length']) / 1.5)
+    #         bpm = str(round(float(apibmapinfo[0]['bpm']) * 1.5,2)).rstrip("0")
+    #     elif "HT" in mods:
+    #         lnth = round(float(apibmapinfo[0]['total_length']) / 0.75)
+    #         bpm = str(round(float(apibmapinfo[0]['bpm']) * 0.75,2)).rstrip("0")
+    #     else:
+    #         lnth = float(apibmapinfo[0]['total_length'])
+    #         bpm = str(round(float(apibmapinfo[0]['bpm']),2)).rstrip("0")
+    #         if bpm.endswith("."):
+    #             bpm = bpm[:-1]
+    #     minutes = int(lnth/60)
+    #     seconds = lnth % 60
+    #     hours = int(minutes/60)
+    #     minutes = minutes%60
+    #     if hours == 0:
+    #         length = str(minutes) + ":" + str(int(seconds))
+    #     else:
+    #         length = str(hours) + ":" + str(int(minutes)) + ":" + str(int(seconds))
+    #     ar = str(round(bmapinfo['ar'],2)).rstrip("0")
+    #     if ar.endswith("."):
+    #         ar = ar[:-1]
+    #     od = str(round(bmapinfo['od'],2)).rstrip("0")
+    #     if od.endswith("."):
+    #         od = od[:-1]
+    #     cs = str(round(bmapinfo['cs'],2)).rstrip("0")
+    #     if cs.endswith("."):
+    #         cs = cs[:-1]
+    #     hp = str(round(bmapinfo['hp'],2)).rstrip("0")
+    #     if hp.endswith("."):
+    #         hp = hp[:-1]
+    #     embed.add_field(name="**Beatmap Information**", value="Length: **" + length + "**, AR: **" + str(ar) + "**, OD: **" + str(od) + "**, CS: **" + str(cs) + "**, BPM: **" + str(bpm) + "**, HP: **" + str(hp) + "**", inline=False)
+    #     countryObject = pycountry.countries.get(alpha_2=user[0]['country'])
+    #     print(countryObject)
+    #     try:
+    #         countryName = countryObject.official_name
+    #     except:
+    #         countryName = countryObject.name
+    #     timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
+    #     embed.set_footer(text=username + " #" + user[0]['pp_rank'] + " Global, #" + user[0]['pp_country_rank'] + " " + countryName + " • {} Ago".format(timeago),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
+    #     await self.bot.edit_message(loading," ",embed=embed)
+    #     self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
+    #     dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
+
     @commands.command(pass_context=True)
     async def compare(self,ctx,*username_list):
+        """Compare the last -recent score with your own."""
         username = " ".join(username_list)
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -382,6 +542,7 @@ class Osu:
 
     @commands.command(pass_context=True)
     async def osu(self,ctx,*username_list):
+        """Show information about an osu! account."""
         username = " ".join(username_list) # Turn list of words into one string
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -422,6 +583,7 @@ class Osu:
 
     @commands.command(pass_context=True)
     async def osutop(self,ctx,*username_list):
+        """Show an osu! player's top plays."""
         username = " ".join(username_list)
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -520,6 +682,232 @@ class Osu:
                 await asyncio.sleep(2)
                 return
 
+    @commands.command(pass_context=True)
+    async def match_costs(self,ctx,url,warmups=2):
+        """Shows how well each player did in a multi lobby."""
+        if 'https://osu.ppy.sh/community/matches' in url:
+            try:
+                url = url.split("matches/")
+            except:
+                await self.bot.say("Invalid URL! :x:")
+                return
+            url = url[1]
+        res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_match?k=" + self.settings['api_key'] + "&mp=" + url)
+        if res['match'] == 0:
+            await self.bot.say("Invalid URL! :x:")
+            return
+        loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
+        if int(res['games'][0]['team_type']) == 2:
+            teamVS = True
+        else:
+            teamVS = False
+        if warmups <= 0:
+            pass
+        else:
+            try:
+                for i in range(warmups):
+                    del res['games'][0]
+            except Exception as e:
+                pass
+        a = time.time()
+        res['games'], playerlist = parse_match(res['games'],teamVS)
+        b = time.time()
+        await self.bot.edit_message(loading,"**Finished Parsing MP. Outputting Embed Message... (Took {:0.5f}s)** <a:mLoading:529680784194404352>".format(b - a))
+        c = time.time()
+        self.sample = res['games']
+        dataIO.save_json("data/osu/sample.json",self.sample)
+        try:
+            if ":" in res['match']['name']:
+                name = res['match']['name'].split(":")
+            else:
+                name = res['match']['name'].split("(",1)
+        except:
+            name = res['match']['name']
+        try:
+            tname = name[0]
+            team1 = name[1].split("vs")
+            team2 = team1[1]
+            team1 = team1[0]
+            team1 = ''.join(c for c in team1 if c not in ' ()')
+            team2 = ''.join(c for c in team2 if c not in ' ()')
+        except:
+            try:
+                del team1
+                del team2
+                del tname
+            except:
+                pass
+            name = res['match']['name']
+
+        if teamVS:
+            userlist0, pointlist0 = sortdict(playerlist[1])
+            userlist1, pointlist1 = sortdict(playerlist[2])
+            f = []
+            try:
+                f.append(":large_blue_circle: **{}**: ".format(team1))
+            except:
+                f.append(":large_blue_circle:: ")
+            for index, player in enumerate(userlist0):
+                try:
+                    username = await get_username(self,ctx,player)
+                except:
+                    username = player + " (Banned)"
+                f.append("**{}**: {:15} - **{:0.2f}**".format(index + 1,username,pointlist0[index]))
+            f.append("")
+            try:
+                f.append(":red_circle: **{}**: ".format(team2))
+            except:
+                f.append(":red_circle:: ")
+            for index, player in enumerate(userlist1):
+                try:
+                    username = await get_username(self,ctx,player)
+                except:
+                    username = player + " (Banned)"
+                f.append("**{}**: {:15} - **{:0.2f}**".format(index + 1,username,pointlist1[index]))
+            f = "\n".join(f)
+            try:
+                embed=discord.Embed(title="<a:mLoading:529680784194404352> {}: {} vs {}".format(tname,team1,team2),
+                                    url="https://osu.ppy.sh/mp/" + url,
+                                    description=f)
+            except:
+                embed=discord.Embed(title="<a:mLoading:529680784194404352> {}".format(name),
+                                    url="https://osu.ppy.sh/mp/" + url,
+                                    description=f)
+        else:
+            userlist, pointlist = sortdict(playerlist)
+            f = []
+            for index, player in enumerate(userlist):
+                try:
+                    username = await get_username(self,ctx,player)
+                except:
+                    username = player + " (Banned)"
+                f.append("**{}**: {:15} - **{:0.2f}**".format(index + 1,username,pointlist[index]))
+            f = "\n".join(f)
+            try:
+                embed=discord.Embed(title="<a:mLoading:529680784194404352> {}: {} vs {}".format(tname,team1,team2),
+                                    url="https://osu.ppy.sh/mp/" + url,
+                                    description=f)
+            except:
+                embed=discord.Embed(title="<a:mLoading:529680784194404352> {}".format(name),
+                                    url="https://osu.ppy.sh/mp/" + url,
+                                    description=f)
+
+        await self.bot.say(embed=embed)
+        dataIO.save_json("data/osu/sample.json",self.sample)
+        d = time.time()
+        await self.bot.edit_message(loading,"**Finished Parsing MP. Outputting Embed Message... (Took {:0.5f}s) Done. (Took {:0.5f}s) **".format(b - a,d - c))
+
+def sortdict(main_list):
+    list1 = []
+    list2 = []
+    print(main_list)
+    try:
+        od = OrderedDict(sorted(main_list.items(),key=lambda x:x[1], reverse=True))
+    except:
+        od = sorted(main_list.items(),key=lambda x:x[1], reverse=True)
+    for key,value in od.items():
+        list1.append(key)
+        list2.append(value)
+    return list1, list2
+
+def parse_match(games,teamVS):
+    plist = {}
+    for game in games:
+        try:
+            del game['game_id']
+        except:
+            pass
+        try:
+            del game['play_mode']
+        except:
+            pass
+        try:
+            del game['match_type']
+        except:
+            pass
+        try:
+            del game['team_type']
+        except:
+            pass
+        try:
+            starttime = datetime.datetime.strptime(game['start_time'],"%Y-%m-%d %H:%M:%S")
+            endtime = datetime.datetime.strptime(game['end_time'],"%Y-%m-%d %H:%M:%S")
+            timediff = endtime - starttime
+            game["time_taken"] = str(timediff)
+        except:
+            pass
+        try:
+            del game['start_time']
+            del game['end_time']
+            del game['scoring_type']
+        except:
+            pass
+        scoresum = 0
+        game['newscores'] = []
+        game['playercount'] = 0
+        for score in game['scores']:
+            g = {}
+            if int(score['score']) < 1000:
+                continue
+            g['user_id'] = score['user_id']
+            if teamVS:
+                try:
+                    plist[int(score['team'])][g['user_id']] = 0
+                except:
+                    plist[int(score['team'])] = {}
+                    plist[int(score['team'])][g['user_id']] = 0
+            else:
+                plist[g['user_id']] = 0
+            g['score'] = score['score']
+            g['maxcombo'] = score['maxcombo']
+            g['acc'] = calculate_acc(score)
+            g['enabled_mods'] = score['enabled_mods']
+            scoresum += int(score['score'])
+            game['playercount'] += 1
+            game['newscores'].append(g)
+        game['scoresum'] = scoresum
+        try:
+            del game['scores']
+        except:
+            pass
+        for newscore in game['newscores']:
+            avg = int(game['scoresum']) / game['playercount']
+            pointcost = int(newscore['score']) / avg
+            newscore['point_cost'] = pointcost
+    if teamVS:
+        for player,point in plist[1].items():
+            pointlist = []
+            for game in games:
+                for score in game['newscores']:
+                    if player == score['user_id']:
+                        pointlist.append(score['point_cost'])
+            pointmax = 0
+            for i in range(0,len(pointlist)):
+                pointmax += pointlist[i]
+            plist[1][player] = pointmax / len(pointlist)
+        for player,point in plist[2].items():
+            pointlist = []
+            for game in games:
+                for score in game['newscores']:
+                    if player == score['user_id']:
+                        pointlist.append(score['point_cost'])
+            pointmax = 0
+            for i in range(0,len(pointlist)):
+                pointmax += pointlist[i]
+            plist[2][player] = pointmax / len(pointlist)
+    else:
+        for player,point in plist.items():
+            pointlist = []
+            for game in games:
+                for score in game['newscores']:
+                    if player == score['user_id']:
+                        pointlist.append(score['point_cost'])
+            pointmax = 0
+            for i in range(0,len(pointlist)):
+                pointmax += pointlist[i]
+            plist[player] = pointmax / len(pointlist)
+    return games, plist
+
 def format_number(num):
     try:
         dec = decimal.Decimal(num)
@@ -540,12 +928,22 @@ def format_number(num):
         return '-' + val
     return val
 
-def eventrank(event):
-    cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', event)
-    event = cleantext.split('achieved rank #')
-    event = event[1].split('on')
-    return event[0]
+def paste_format(tname,team1,team2,time,mvp,mvpoint,ace,acepoint,player_list,point_list):
+    f = []
+    f.append("----------------------------------------------------------------------")
+    f.append("-                            MATCH DETAILS                           -")
+    f.append("----------------------------------------------------------------------")
+    f.append("Tournament: {}".format(tname))
+    f.append("{} vs. {}".format(team1,team2))
+    f.append("Lobby started: {}".format(time))
+    f.append("Match MVP: {} - {}".format(mvp,mvpoint))
+    f.append("Match ACE: {} - {}".format(ace,acepoint))
+    f.append("----------------------------------------------------------------------")
+    index = 0
+    for index, player in enumerate(player_list):
+        f.append("#{}: {:15} - {:0.2f}".format(index + 1,player,point_list[index]))
+    f = "\n".join(f)
+    return f
 
 def determine_plural(number):
     if int(number) != 1:
@@ -588,6 +986,21 @@ def calculate_acc(beatmap):
     user_score += float(beatmap['count50']) * 50.0
     return (float(user_score)/float(total_unscale_score)) * 100.0
 
+async def mrank(self, ctx, mapID, userID):
+    async with aiohttp.ClientSession(headers=self.header) as session:
+        try:
+            async with session.get("https://osu.ppy.sh/api/get_scores?b={}&k={}".format(mapID,self.settings['api_key'])) as channel:
+                res = await channel.json()
+        except Exception as e:
+            await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
+            return
+    idx = 1
+    for score in res:
+        if score['user_id'] == userID:
+            return idx
+        idx += 1
+    return None
+
 async def use_api(self, ctx,url):
     async with aiohttp.ClientSession(headers=self.header) as session:
         try:
@@ -597,6 +1010,16 @@ async def use_api(self, ctx,url):
         except Exception as e:
             await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
             return
+
+async def get_username(self,ctx,id):
+    async with aiohttp.ClientSession(headers=self.header) as session:
+        try:
+            async with session.get("https://osu.ppy.sh/api/get_user?u=" + id + "&k=" + self.settings['api_key']) as channel:
+                res = await channel.json()
+        except Exception as e:
+            await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
+            return
+        return res[0]['username']
 
 async def get_sr(self, mapID, mods):
     if mapID in self.maps:
@@ -798,51 +1221,9 @@ def hit_to_emote(hit):
     if hit == "hit100": return "<:hit100:524769397840281601>"
     if hit == "hit50": return "<:hit50:524769420887982081>"
     if hit == "hit0": return "<:hit0:524769445936234496>"
+
 def setup(bot):
     print("setting up...")
     n = Osu(bot)
     # bot.add_listener(n.message_triggered, "on_message")
     bot.add_cog(n)
-
-# ----------------------------DEPRECATED CODE----------------------------
-# ----------OLD RECENT
-# f = []
-# acc = round(calculate_acc(res[0]),2)
-# if res[0]['rank'] == "F":
-#     totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
-# else:
-#     totalhits = None
-# bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
-# rank = rank_to_emote(res[0]['rank'])
-# pp = round(float(bmapinfo['pp'][0]),2)
-# if int(res[0]['perfect']) == 1:
-#     f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** ▸ " + str(acc) + "%")
-# else:
-#     new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
-#     iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
-#     iffcacc = round(calculate_acc(iffcstats),2)
-#     iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
-#     iffcpp = round(float(iffcinfo['pp'][0]),2)
-#     f.append("▸ " + rank + " ▸ **" + str(pp) + "pp** (" + str(iffcpp) + "pp for " + str(iffcacc) + "% FC) ▸ " + str(acc) + "%")
-# hit300 = hit_to_emote("hit300")
-# hit100 = hit_to_emote("hit100")
-# hit50 = hit_to_emote("hit50")
-# hit0 = hit_to_emote("hit0")
-# f.append("▸ " + str(res[0]['score']) + " ▸ x" + str(res[0]['maxcombo']) + "/" + str(bmapinfo['max_combo']) + " ▸ " + hit300 + str(res[0]['count300']) + hit100 + str(res[0]['count100']) + hit50 + str(res[0]['count50']) + hit0 + str(res[0]['countmiss']))
-# if totalhits is not None:
-#     if type(bmapinfo['map_completion']) is float:
-#         complete = round(bmapinfo['map_completion'],2)
-#         f.append("▸ **Map Completion: **" + str(complete) + "%")
-# mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
-# if mods == "":
-#     mods = "NoMod"
-# embed = discord.Embed(colour=0xD3D3D3,title="",description="\n".join(f))
-# embed.set_author(name=bmapinfo['artist'] + " - " + bmapinfo['title'] + "[" + bmapinfo['version'] + "] +" + mods + " [" + str(round(bmapinfo['stars'],2)) + "★]",url="https://osu.ppy.sh/b/" + str(res[0]['beatmap_id']),icon_url="https://a.ppy.sh/" + str(res[0]['user_id']))
-# tempres = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
-# embed.set_thumbnail(url="https://b.ppy.sh/thumb/" + str(tempres[0]['beatmapset_id']) + "l.jpg")
-# timeago = time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S'))
-# embed.set_footer(text="Try #" + str(trycount) + " | {} Ago".format(timeago))
-# await self.bot.delete_message(loading)
-# self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
-# dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
-# await self.bot.send_message(ctx.message.channel,embed=embed)
