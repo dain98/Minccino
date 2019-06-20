@@ -274,17 +274,24 @@ class Osu:
         # Flush aggdraw
         adraw.flush()
         # Draw User Image
-        urllib.request.urlretrieve("https://a.ppy.sh/{}".format(user[0]['user_id']),"data/osu/cache/user_{}.png".format(user[0]['user_id']))
-        userimage = Image.open("data/osu/cache/user_{}.png".format(user[0]['user_id']))
-        userimage.thumbnail((54,54),Image.ANTIALIAS)
-        self.recenttemplate.paste(userimage,(525,107))
-        os.remove("data/osu/cache/user_{}.png".format(user[0]['user_id']))
+        try:
+            urllib.request.urlretrieve("https://a.ppy.sh/{}".format(user[0]['user_id']),"data/osu/cache/user_{}.png".format(user[0]['user_id']))
+            userimage = Image.open("data/osu/cache/user_{}.png".format(user[0]['user_id']))
+            userimage.thumbnail((54,54),Image.ANTIALIAS)
+            self.recenttemplate.paste(userimage,(525,107))
+            os.remove("data/osu/cache/user_{}.png".format(user[0]['user_id']))
+        except:
+            pass
         # Draw Beatmap Image
-        urllib.request.urlretrieve("https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg",'data/osu/cache/map_{}.png'.format(apibmapinfo[0]['beatmapset_id']))
-        mapimage = Image.open("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
-        mapimage.thumbnail((104,78),Image.ANTIALIAS)
-        self.recenttemplate.paste(mapimage,(498,7))
-        os.remove("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
+        try:
+            urllib.request.urlretrieve("https://b.ppy.sh/thumb/" + str(apibmapinfo[0]['beatmapset_id']) + "l.jpg",'data/osu/cache/map_{}.png'.format(apibmapinfo[0]['beatmapset_id']))
+            mapimage = Image.open("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
+            mapimage.thumbnail((104,78),Image.ANTIALIAS)
+            self.recenttemplate.paste(mapimage,(498,7))
+            os.remove("data/osu/cache/map_{}.png".format(apibmapinfo[0]['beatmapset_id']))
+        except:
+            print(apibmapinfo[0]['beatmapset_id'])
+            pass
         rankimage = Image.open("data/osu/rankletters/rank" + res[0]['rank'] + ".png")
         rankimage.thumbnail((100,100),Image.ANTIALIAS)
         self.recenttemplate.paste(rankimage,(385,63),rankimage)
