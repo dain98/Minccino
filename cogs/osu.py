@@ -197,7 +197,7 @@ class Osu:
             mods = "+" + mods
         titleText = "{} - {}".format(bmapinfo['artist'],bmapinfo['title'])
         subtitleText = "[" + bmapinfo['version']
-        maprank = await mrank(self,ctx,res[0]['beatmap_id'],user[0]['user_id'])
+        maprank = await mrank(self,ctx,res[0]['beatmap_id'],res[0]['score'],user[0]['user_id'])
         toprank = None
         for idx,i in enumerate(userbest):
             if i['beatmap_id'] == res[0]['beatmap_id']:
@@ -292,14 +292,14 @@ class Osu:
         draw.text((498,166),"{}".format(user[0]['username']),font=defaultBoldFont,fill=(255,255,255))
         # Draw name of map
         draw.text((18,13),titleText,font=titleFont,fill=(255,255,255))
+        if maprank is not None:
+            subtitleText = subtitleText + " Rank #{}".format(maprank)
+            if toprank is not None:
+                subTitleText = subtitleText + ", Personal Best #{}!".format(toprank)
+        elif toprank is not None:
+            subtitleText = subtitleText + " Personal Best #{}!".format(toprank)
         draw.text((18,34),subtitleText,font=subtitleFont,fill=(255,255,255))
         # Draw score
-        if maprank is not None:
-            score = score + " Rank #{}".format(maprank)
-            if toprank is not None:
-                score = score + ", Personal Best #{}!".format(toprank)
-        elif toprank is not None:
-            score = score + " Personal Best #{}!".format(toprank)
         draw.text((19,79),score,font=defaultFont,fill=(255,255,255))
         # Draw Difficulty
         draw.text((284,139),"{}*".format(srating),font=defaultBoldFont,fill=(255,255,255))
@@ -986,10 +986,10 @@ def calculate_acc(beatmap):
     user_score += float(beatmap['count50']) * 50.0
     return (float(user_score)/float(total_unscale_score)) * 100.0
 
-async def mrank(self, ctx, mapID, userID):
+async def mrank(self, ctx, mapID, mapScore, userID):
     async with aiohttp.ClientSession(headers=self.header) as session:
         try:
-            async with session.get("https://osu.ppy.sh/api/get_scores?b={}&k={}".format(mapID,self.settings['api_key'])) as channel:
+            async with session.get("https://osu.ppy.sh/api/get_scores?b={}&limit=100&k={}".format(mapID,self.settings['api_key'])) as channel:
                 res = await channel.json()
         except Exception as e:
             await self.bot.send_message(ctx.message.channel,"Error: " + str(e))
@@ -997,7 +997,8 @@ async def mrank(self, ctx, mapID, userID):
     idx = 1
     for score in res:
         if score['user_id'] == userID:
-            return idx
+            if score['score'] == mapScore:
+                return idx
         idx += 1
     return None
 
