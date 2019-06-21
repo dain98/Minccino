@@ -6,9 +6,9 @@ The bot is based off of [Red bot](https://github.com/Cog-Creators/Red-DiscordBot
 Bot invite [link](https://discordapp.com/oauth2/authorize?client_id=438239507565903872&permissions=8192&scope=bot)    
 Minccino asks for permission to manage messages because it needs the ability to delete your reaction when using the -osutop command. 
 
-If you find any bugs and/or have suggestions for extra features, please let me know in the issues section of this page!
+If you find any bugs and/or have suggestions for extra features, please let me know in the issues section of this page!  
 
-FAQ:
+FAQ:  
 Q: Will you add tracking?  
 A: No.  
 Q: Why not?  
