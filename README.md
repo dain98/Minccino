@@ -12,7 +12,7 @@ FAQ:
 Q: Will you add tracking?  
 A: No.  
 Q: Why not?  
-A. There are already plenty of Discord bots that spam the osu! API over and over to track a couple plays--I don't want to spam it any more than needed. If you need tracking you can simply just use BoatBot or owo bot(ily Stevy).  
+A: There are already plenty of Discord bots that spam the osu! API over and over to track a couple plays--I don't want to spam it any more than needed. If you need tracking you can simply just use BoatBot or owo bot(ily Stevy).  
 Q: But-  
 A: Bro no means no what the fuck  
 
