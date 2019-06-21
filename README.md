@@ -12,7 +12,7 @@ If you find any bugs and/or have suggestions for extra features, please let me k
 Q: Will you add tracking?  
 `A: No. There are already plenty of Discord bots that spam the osu! API over and over to track a couple plays--I don't want to spam it any more than needed. If you need tracking you can simply just use BoatBot or owo bot(ily Stevy).`  
 Q: The pp value isn't exactly the same/the same as pp if FC! Why does this happen?  
-`A: When sliderends are dropped during a play, it makes exact pp calculations impossible(for now) because we can't tell if it was an FC with dropped sliderends or a sliderbreak at the end. I apologize for this :(`  
+`A: When sliderends are dropped during a play, it makes exact pp calculations impossible(for now) because it can't tell if it was an FC with dropped sliderends or a sliderbreak at the end. I apologize for this :(`  
 Q: Is this the final version of the bot?  
 `A: If anything, it's the very first version! I have so much more that I want to do with this bot, possibly with games that are not osu!. I'll keep people updated through this site, and if people want it badly enough I'll make a Discord server dedicated to the bot, where I post new updates/changes the moment they're made.`  
 
