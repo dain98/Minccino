@@ -41,41 +41,6 @@ class Osu:
 
     @commands.command(pass_context=True)
     @checks.is_owner()
-    async def paste(self,ctx):
-        """Testing pastebin pasting"""
-        self.pb.authenticate(self.pasteKey['username'],self.pasteKey['password'])
-        # f.append("----------------------------------------------------------------------")
-        # f.append("-                            MATCH DETAILS                           -")
-        # f.append("----------------------------------------------------------------------")
-        # f.append("Tournament: ESF").format()
-        # f.append("BITPOF Lite vs. tangerines")
-        # f.append("Lobby started: March 23, 2019 @11:52PM")
-        # f.append("Match MVP: DigitalHypno - 2.70")
-        # f.append("Match ACE: Dain - 2.65")
-        # f.append("----------------------------------------------------------------------")
-        # f.append("#1: DigitalHypno - 2.70")
-        # f.append("#2: Dain         - 2.69")
-        # f.append("#3: Conyoh       - 2.68")
-        # f.append("#4: mook         - 2.67")
-        # f.append("#5: YokesPai     - 2.66")
-        # f.append("#6: M I L E S    - 2.65")
-        # f = "\n".join(f)
-        tname = "ESF"
-        team1 = "BITPOF Lite"
-        team2 = "tangerines"
-        time = "March 23, 2019 @11:52PM"
-        mvp = "DigitalHypno"
-        mvpoint = 2.70
-        ace = "Dain"
-        acepoint = 2.69
-        playerlist = ['DigitalHypno','Dain','Conyoh','mook','YokesPai','M I L E S']
-        pointlist = [2.70,2.69,2.68,2.67,2.66,2.65]
-        f = paste_format(tname,team1,team2,time,mvp,mvpoint,ace,acepoint,playerlist,pointlist)
-        res = self.pb.create_paste(f,0,'Match Costs for {}: ({}) vs ({})'.format(tname,team1,team2),'N',None)
-        await self.bot.say(res)
-
-    @commands.command(pass_context=True)
-    @checks.is_owner()
     async def mp(self,ctx,url,warmups=2):
         """***UNDER CONSTRUCTION***"""
         if 'https://osu.ppy.sh/community/matches' in url:
@@ -155,8 +120,40 @@ class Osu:
             await self.bot.say("Added! Your osu! username is set to " + username + ". ✅")
 
     @commands.command(pass_context=True)
+    async def recentbest(self,ctx,*username_list):
+        """Get a player's most recent best score!"""
+        if username_list[0].isdigit():
+            best = username_list[0]
+            username_list = username_list[1:]
+        else:
+            best = 1
+        username = " ".join(username_list)
+        if username == "":
+            if ctx.message.author.id not in self.users:
+                await self.bot.say("**User not set! Please set your osu! username using -osuset [Username]! ❌**")
+                return
+            else:
+                username = self.users[ctx.message.author.id]
+        await self.bot.say(username)
+        # loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
+        user = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user?k=" + self.settings['api_key'] + "&u=" + username)
+        if len(user) == 0:
+            await self.bot.edit_message(loading,"User not found! :x:")
+            return
+        userbest = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_best?k=" + self.settings['api_key'] + "&u=" + username + "&limit=100")
+        if len(userbest) == 0:
+            await self.bot.edit_message(loading,"User not found! :x:")
+            return
+
+    @commands.command(pass_context=True)
     async def recent(self,ctx,*username_list):
-        """***Get your most recent score!***"""
+        """Get your most recent score!"""
+        if username_list[0].isdigit():
+            num = int(username_list[0])
+            num -= 1
+            username_list = username_list[1:]
+        else:
+            num = 0
         username = " ".join(username_list)
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -178,30 +175,30 @@ class Osu:
             await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
             return
         trycount = 0
-        tempid = res[0]['beatmap_id']
+        tempid = res[num]['beatmap_id']
         for i in res:
             if i['beatmap_id'] == tempid:
                 trycount+=1
             else:
                 break
-        acc = round(calculate_acc(res[0]),2)
-        totalhits = (int(res[0]['count50']) + int(res[0]['count100']) + int(res[0]['count300']) + int(res[0]['countmiss']))
-        apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[0]['beatmap_id']))
-        bmapinfo = await get_pyttanko(map_id=int(res[0]['beatmap_id']),misses=int(res[0]['countmiss']),accs=[acc],mods=int(res[0]['enabled_mods']),combo=int(res[0]['maxcombo']),completion=totalhits)
+        acc = round(calculate_acc(res[num]),2)
+        totalhits = (int(res[num]['count50']) + int(res[num]['count100']) + int(res[num]['count300']) + int(res[num]['countmiss']))
+        apibmapinfo = await use_api(self,ctx,"https://osu.ppy.sh/api/get_beatmaps?k=" + self.settings['api_key'] + "&b=" + str(res[num]['beatmap_id']))
+        bmapinfo = await get_pyttanko(map_id=int(res[num]['beatmap_id']),misses=int(res[num]['countmiss']),accs=[acc],mods=int(res[num]['enabled_mods']),combo=int(res[num]['maxcombo']),completion=totalhits)
         complete = round(bmapinfo['map_completion'],2)
         srating = str(round(bmapinfo['stars'],2))
         pp = round(float(bmapinfo['pp'][0]),2)
-        mods = str(",".join(num_to_mod(res[0]['enabled_mods'])))
-        score = format(int(res[0]['score']),',d')
+        mods = str(",".join(num_to_mod(res[num]['enabled_mods'])))
+        score = format(int(res[num]['score']),',d')
         if mods != "":
             mods = "+" + mods
         titleText = "{} - {}".format(bmapinfo['artist'],bmapinfo['title'])
         subtitleText = "[" + bmapinfo['version']
-        maprank = await mrank(self,ctx,res[0]['beatmap_id'],res[0]['score'],user[0]['user_id'])
+        maprank = await mrank(self,ctx,res[num]['beatmap_id'],res[num]['score'],user[0]['user_id'])
         toprank = None
         for idx,i in enumerate(userbest):
-            if i['beatmap_id'] == res[0]['beatmap_id']:
-                if i['score'] == res[0]['score']:
+            if i['beatmap_id'] == res[num]['beatmap_id']:
+                if i['score'] == res[num]['score']:
                     toprank = idx + 1
                     break
         self.recenttemplate = Image.open("data/osu/templates/recent.png")
@@ -230,22 +227,21 @@ class Osu:
         # Draw User Info
         adraw.text((498,184),"{}pp".format(user[0]['pp_raw']),smallFont)
         adraw.text((498,198),"#{}, {} #{}".format(user[0]['pp_rank'],user[0]['country'],user[0]['pp_country_rank']),smallFont)
-        timeago = "Score set {}ago.".format(time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[0]['date'], '%Y-%m-%d %H:%M:%S')))
+        timeago = "Score set {}ago.".format(time_ago(datetime.datetime.utcnow() + datetime.timedelta(hours=0), datetime.datetime.strptime(res[num]['date'], '%Y-%m-%d %H:%M:%S')))
         tago = textwrap.wrap(timeago,width=22)
-        print(tago)
         h = 268
         for line in tago:
             adraw.text((498,h),str(line),smallestFont)
             h += 14
         # Draw Combo
-        w, h = draw.textsize(res[0]['maxcombo'],smalllFont)
+        w, h = draw.textsize(res[num]['maxcombo'],smalllFont)
         width = 20
         height = 190
         tempFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansLight.otf",size=14,opacity=255)
         tempFontSize = ImageFont.truetype("data/fonts/NotoSansLight.otf",14)
         tempBoldFont = aggdraw.Font((255,255,255),"data/fonts/NotoSansSemiBold.otf",size=14,opacity=255)
         tempBoldFontSize = ImageFont.truetype("data/fonts/NotoSansSemiBold.otf",14)
-        adraw.text((width,height),str(res[0]['maxcombo']),smallFont)
+        adraw.text((width,height),str(res[num]['maxcombo']),smallFont)
         w2, h2 = draw.textsize(str(bmapinfo['max_combo']),smallBolddFont)
         width2 = width + w + 12
         height2 = (414-h2)/2
@@ -253,19 +249,19 @@ class Osu:
         adraw.line((width2,height+4,width+w,height2+h2),pen)
         adraw.text((width2,height2),str(bmapinfo['max_combo']),smallBoldFont)
         # Draw 300s 100s 50s and misses
-        w, h = draw.textsize(res[0]['count300'],font=hittFont)
-        adraw.text(((290-w)/2,(244-h)/2),str(res[0]['count300']),hitFont)
-        w, h = draw.textsize(res[0]['count50'],font=hittFont)
-        adraw.text(((290-w)/2,(300-h)/2),res[0]['count50'],hitFont)
-        w, h = draw.textsize(res[0]['count100'],font=hittFont)
-        adraw.text(((478-w)/2,(244-h)/2),str(res[0]['count100']),hitFont)
-        w, h = draw.textsize(res[0]['countmiss'],font=hittFont)
-        adraw.text(((478-w)/2,(300-h)/2),res[0]['countmiss'],hitFont)
+        w, h = draw.textsize(res[num]['count300'],font=hittFont)
+        adraw.text(((290-w)/2,(244-h)/2),str(res[num]['count300']),hitFont)
+        w, h = draw.textsize(res[num]['count50'],font=hittFont)
+        adraw.text(((290-w)/2,(300-h)/2),res[num]['count50'],hitFont)
+        w, h = draw.textsize(res[num]['count100'],font=hittFont)
+        adraw.text(((478-w)/2,(244-h)/2),str(res[num]['count100']),hitFont)
+        w, h = draw.textsize(res[num]['countmiss'],font=hittFont)
+        adraw.text(((478-w)/2,(300-h)/2),res[num]['countmiss'],hitFont)
         # Draw if FC Stats
-        new300 = int(res[0]['count300']) + int(res[0]['countmiss'])
-        iffcstats = { "count50":res[0]['count50'],"count100":res[0]['count100'],"count300":new300,"countmiss":0 }
+        new300 = int(res[num]['count300']) + int(res[num]['countmiss'])
+        iffcstats = { "count50":res[num]['count50'],"count100":res[num]['count100'],"count300":new300,"countmiss":0 }
         iffcacc = round(calculate_acc(iffcstats),2)
-        iffcinfo = await get_pyttanko(map_id=res[0]['beatmap_id'],accs=[iffcacc],mods=int(res[0]['enabled_mods']),fc=True)
+        iffcinfo = await get_pyttanko(map_id=res[num]['beatmap_id'],accs=[iffcacc],mods=int(res[num]['enabled_mods']),fc=True)
         iffcpp = round(float(iffcinfo['pp'][0]),2)
         w, h = draw.textsize(str(iffcacc),smallesttFont)
         adraw.text(((790-w)/2,(530-h)/2),"IF FC WITH {}%".format(iffcacc),smallestFont)
@@ -292,7 +288,7 @@ class Osu:
         except:
             print(apibmapinfo[0]['beatmapset_id'])
             pass
-        rankimage = Image.open("data/osu/rankletters/rank" + res[0]['rank'] + ".png")
+        rankimage = Image.open("data/osu/rankletters/rank" + res[num]['rank'] + ".png")
         rankimage.thumbnail((100,100),Image.ANTIALIAS)
         self.recenttemplate.paste(rankimage,(385,63),rankimage)
         # Draw User Info
@@ -363,7 +359,7 @@ class Osu:
         await self.bot.send_file(ctx.message.channel,'data/osu/cache/score_{}.png'.format(code))
         await self.bot.delete_message(loading)
         os.remove('data/osu/cache/score_{}.png'.format(code))
-        self.prevRecent[ctx.message.channel.id] = int(res[0]['beatmap_id'])
+        self.prevRecent[ctx.message.channel.id] = int(res[num]['beatmap_id'])
         dataIO.save_json("data/osu/recentlist.json",self.prevRecent)
 
     # @commands.command(pass_context=True)
@@ -807,7 +803,6 @@ class Osu:
 def sortdict(main_list):
     list1 = []
     list2 = []
-    print(main_list)
     try:
         od = OrderedDict(sorted(main_list.items(),key=lambda x:x[1], reverse=True))
     except:
@@ -1128,7 +1123,6 @@ async def get_pyttanko(map_id:str, accs=[100], mods=0, misses=0, combo=None, com
 
     if completion:
         try:
-            print("Completion: " + str(completion) + " / " + str(len(bmap.hitobjects)))
             pyttanko_json['map_completion'] = (completion / len(bmap.hitobjects)) * 100
         except:
             pyttanko_json['map_completion'] = "Error"
