@@ -1,5 +1,5 @@
 ![Minccino - An All-Purpose Discord Bot](http://zenith.blue/i/49ipw.png)
-An All-Purpose Discord Bot. 
+
 
 The bot is based off of [Red bot](https://github.com/Cog-Creators/Red-DiscordBot). The -osutop and -compare commands are **heavily** inspired by [owo bot](https://github.com/AznStevy/owo).  
 HUGE Thanks to [sagwayaya](https://twitter.com/sagwayaya) for help on graphics!
