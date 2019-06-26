@@ -34,12 +34,12 @@ Q: Is this the final version of the bot?
   
 ## Contributors
 **Graphics:**  
-@aly ヽ(*・ω・)ﾉ #6758 - Literally did everything lol  
+[aly ヽ(*・ω・)ﾉ #6758](https://twitter.com/sagwayaya) - Literally did everything lol  
   
-**UI:**
-Stevy#3330 - I literally ripped off his design for -osutop and -compare from owo bot LOL(I'll change this so it's unique soon btw)  
+**UI:**  
+[Stevy#3330](https://github.com/AznStevy) - I literally ripped off his design for -osutop and -compare from owo bot LOL(I'll change this so it's unique soon btw)  
   
 **Match Cost Formula:**  
-josh | megatron#7200 - Came up with the idea on his own bot!  
+[josh | megatron#7200](https://twitter.com/silence_037) - Came up with the idea on his own bot!  
 Best459#2450 - Came up with the most updated equation that Minccino uses.  
-this1neguy#4569 - Helped me test case how much impact map % had on the formula.  
+[this1neguy#4569](https://twitter.com/this1neguy) - Helped me test case how much impact map % had on the formula.  
