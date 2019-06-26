@@ -9,7 +9,7 @@ Minccino asks for permission to manage messages because it needs the ability to 
 
 If you find any bugs and/or have suggestions for extra features, please let me know in the issues section of this page!  
 
-## FAQ:  
+## FAQ  
 Q: Will you add tracking?  
 `A: No. There are already plenty of Discord bots that spam the osu! API over and over to track a couple plays--I don't want to spam it any more than needed. If you need tracking you can simply just use BoatBot or owo bot(ily Stevy).`  
 Q: The pp value isn't exactly the same/the same as pp if FC! Why does this happen?  
