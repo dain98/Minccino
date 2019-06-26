@@ -36,6 +36,9 @@ Q: Is this the final version of the bot?
 **Graphics:**  
 @aly ヽ(*・ω・)ﾉ #6758 - Literally did everything lol  
   
+**UI:**
+Stevy#3330 - I literally ripped off his design for -osutop and -compare from owo bot LOL(I'll change this so it's unique soon btw)  
+  
 **Match Cost Formula:**  
 josh | megatron#7200 - Came up with the idea on his own bot!  
 Best459#2450 - Came up with the most updated equation that Minccino uses.  
