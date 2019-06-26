@@ -16,7 +16,9 @@ Q: The pp value isn't exactly the same/the same as pp if FC! Why does this happe
 `A: When sliderends are dropped during a play, it makes exact pp calculations impossible(for now) because it can't tell if it was an FC with dropped sliderends or a sliderbreak at the end. I apologize for this :(`  
 Q: Can I see the formula for the match costs command?  
 `A: Sure.`
-![Match Cost Formula](http://zenith.blue/i/8sw28.png)
+![Match Cost Formula](http://zenith.blue/i/8sw28.png)  
+Q: Any plans on adding other gamemodes for osu!?  
+`A: Yes, but not for awhile. I want to perfect all the commands for osu!standard until I'm happy with them until I move onto other mods.`  
 Q: Is this the final version of the bot?  
 `A: If anything, it's the very first version! I have so much more that I want to do with this bot, possibly with games that are not osu!. I'll keep people updated through this site, and if people want it badly enough I'll make a Discord server dedicated to the bot, where I post new updates/changes the moment they're made.`  
 
