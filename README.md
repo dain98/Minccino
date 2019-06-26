@@ -33,5 +33,10 @@ Q: Is this the final version of the bot?
 |stop|Stops the current song/playlist, CLEARS queue.|
   
 ## Contributors
-![sagwayaya](https://cdn.discordapp.com/avatars/131683168985153536/a5f4b9665c0d4825c1218029e56018a6.jpg?thumbnail) @aly ヽ(*・ω・)ﾉ
-#6758, Graphics
+**Graphics:**  
+@aly ヽ(*・ω・)ﾉ #6758 - Literally did everything lol  
+  
+**Match Cost Formula:**  
+josh | megatron#7200 - Came up with the idea on his own bot!  
+Best459#2450 - Came up with the most updated equation that Minccino uses.  
+this1neguy#4569 - Helped me test case how much impact map % had on the formula.  
