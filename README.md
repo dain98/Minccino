@@ -31,3 +31,7 @@ Q: Is this the final version of the bot?
 |skip|Skips the current song.|
 |song|Get info about the current song playing.|
 |stop|Stops the current song/playlist, CLEARS queue.|
+  
+## Contributors
+![sagwayaya](https://cdn.discordapp.com/avatars/131683168985153536/a5f4b9665c0d4825c1218029e56018a6.jpg#thumbnail) @aly ヽ(*・ω・)ﾉ
+#6758, Graphics
