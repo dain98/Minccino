@@ -48,3 +48,6 @@ Q: Is this the final version of the bot?
 [josh | megatron#7200](https://twitter.com/silence_037) - Came up with the idea on his own bot!  
 Best459#2450 - Came up with the most updated equation that Minccino uses.  
 [this1neguy#4569](https://twitter.com/this1neguy) - Helped me test case how much impact map % had on the formula.  
+
+**Coding:**  
+[Riya#0001](https://twitter.com/riyacchi) - Helped me a shit ton in general, he's an absolute genius when it comes to this kind of work. I look up to him a lot!
