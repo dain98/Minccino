@@ -147,13 +147,23 @@ class Osu:
 
     @commands.command(pass_context=True)
     async def recent(self,ctx,*username_list):
-        """Get your most recent score!"""
-        if username_list[0].isdigit():
-            num = int(username_list[0])
-            num -= 1
-            username_list = username_list[1:]
-        else:
+        """Get your most recent score! -recent [count] [username]"""
+        try:
+            if username_list[0].isdigit():
+                num = int(username_list[0])
+                if num <= 0:
+                    await self.bot.say("Recent # cannot be 0 or less!")
+                    return
+                else:
+                    num -= 1
+                    print(num)
+                    username_list = username_list[1:]
+                    print(username_list)
+            else:
+                num = 0
+        except:
             num = 0
+            pass
         username = " ".join(username_list)
         if username == "":
             if ctx.message.author.id not in self.users:
@@ -173,6 +183,9 @@ class Osu:
         res = await use_api(self,ctx,"https://osu.ppy.sh/api/get_user_recent?k=" + self.settings['api_key'] + "&u=" + username)
         if len(res) == 0:
             await self.bot.edit_message(loading,"No recent plays found for " + username + ". :x:")
+            return
+        if len(res) <= num:
+            await self.bot.edit_message(loading,"**{}** doesn't seem to have a #{} recent play. The latest score I could find was #{}.".format(username,num + 1,len(res)))
             return
         trycount = 0
         tempid = res[num]['beatmap_id']
@@ -746,10 +759,7 @@ class Osu:
             userlist0, pointlist0 = sortdict(playerlist[1])
             userlist1, pointlist1 = sortdict(playerlist[2])
             f = []
-            try:
-                f.append(":large_blue_circle: **{}**: ".format(team1))
-            except:
-                f.append(":large_blue_circle:: ")
+            f.append(":large_blue_circle: **Blue Team** :large_blue_circle:")
             for index, player in enumerate(userlist0):
                 try:
                     username = await get_username(self,ctx,player)
@@ -757,10 +767,7 @@ class Osu:
                     username = player + " (Banned)"
                 f.append("**{}**: {:15} - **{:0.2f}**".format(index + 1,username,pointlist0[index]))
             f.append("")
-            try:
-                f.append(":red_circle: **{}**: ".format(team2))
-            except:
-                f.append(":red_circle:: ")
+            f.append(":red_circle: **Red Team** :red_circle:")
             for index, player in enumerate(userlist1):
                 try:
                     username = await get_username(self,ctx,player)
@@ -858,6 +865,7 @@ def parse_match(games,teamVS):
                 except:
                     plist[int(score['team'])] = {}
                     plist[int(score['team'])][g['user_id']] = 0
+
             else:
                 plist[g['user_id']] = 0
             g['score'] = score['score']
@@ -874,8 +882,9 @@ def parse_match(games,teamVS):
             pass
         for newscore in game['newscores']:
             avg = int(game['scoresum']) / game['playercount']
-            pointcost = int(newscore['score']) / avg
+            pointcost = (int(newscore['score']) / avg) + 0.4
             newscore['point_cost'] = pointcost
+    k = 0.4
     if teamVS:
         for player,point in plist[1].items():
             pointlist = []
@@ -887,6 +896,7 @@ def parse_match(games,teamVS):
             for i in range(0,len(pointlist)):
                 pointmax += pointlist[i]
             plist[1][player] = pointmax / len(pointlist)
+            plist[1][player] *= 1.2 ** ((len(pointlist)/len(games))**k)
         for player,point in plist[2].items():
             pointlist = []
             for game in games:
@@ -897,6 +907,7 @@ def parse_match(games,teamVS):
             for i in range(0,len(pointlist)):
                 pointmax += pointlist[i]
             plist[2][player] = pointmax / len(pointlist)
+            plist[2][player] *= 1.2 ** ((len(pointlist)/len(games))**k)
     else:
         for player,point in plist.items():
             pointlist = []
@@ -908,6 +919,7 @@ def parse_match(games,teamVS):
             for i in range(0,len(pointlist)):
                 pointmax += pointlist[i]
             plist[player] = pointmax / len(pointlist)
+
     return games, plist
 
 def format_number(num):

@@ -19,6 +19,8 @@ class Botreact:
 
     async def message_triggered(self, message):
         message2 = message.content.lower()
+        if ':7roll:' in message2:
+            await self.bot.send_message(message.channel,"<:7pain:589695777241301021>")
         if 'i love you <@438239507565903872>' in message2 or 'i love you minccino' in message2 or 'i love u <@438239507565903872>' in message2 or 'i love u minccino' in message2 or 'ily <@438239507565903872>' in message2 or 'ily minccino' in message2 or 'ilu <@438239507565903872>' in message2 or 'ilu minccino' in message2:
             await self.bot.send_message(message.channel,"I love you too, " + message.author.mention + "!!")
             await self.bot.send_file(message.channel,"data/pictures/MinccinoLove.gif")
