@@ -57,6 +57,16 @@ class Osu:
         loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
 
     @commands.command(pass_context=True)
+    async def acc(self,ctx,c300,c100,c50,cMisses):
+        temp = {
+            'count300' : c300,
+            'count100' : c100,
+            'count50' : c50,
+            'countmiss' : cMisses
+        }
+        await self.bot.send_message(ctx.message.channel,"Your accuracy for [**{}**/**{}**/**{}**/**{}**] is **{}%**.".format(c300,c100,c50,cMisses,round(calculate_acc(temp),2)))
+
+    @commands.command(pass_context=True)
     async def bws(self,ctx,rank,bcount):
         """Check your Badge Weighted Seeding rank. -bws [rank] [badgecount]"""
         bcount = int(bcount)
@@ -713,10 +723,6 @@ class Osu:
             await self.bot.say("Invalid URL! :x:")
             return
         loading = await self.bot.send_message(ctx.message.channel,"**Working...** <a:mLoading:529680784194404352>")
-        if int(res['games'][0]['team_type']) == 2:
-            teamVS = True
-        else:
-            teamVS = False
         if warmups <= 0:
             pass
         else:
@@ -725,6 +731,10 @@ class Osu:
                     del res['games'][0]
             except Exception as e:
                 pass
+        if int(res['games'][0]['team_type']) == 2:
+            teamVS = True
+        else:
+            teamVS = False
         a = time.time()
         res['games'], playerlist = parse_match(res['games'],teamVS)
         b = time.time()

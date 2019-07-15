@@ -18,6 +18,17 @@ class Coolstuff:
         self.header = {"User-Agent": "User_Agent"}
 
     @commands.command(pass_context=True)
+    async def tocelsius(self,ctx,fahrenheit):
+        celsius = int(fahrenheit) - 32
+        celsius *= (5/9)
+        await self.bot.say("{:d}°F is {:d}°C. ".format(fahrenheit,celsius))
+
+    @commands.command(pass_context=True)
+    async def tofahrenheit(self,ctx,celsius: int):
+        fahrenheit = (int(celsius) * (9/5)) + 32
+        await self.bot.say("{:d}°C is {:d}°F. ".format(celsius,fahrenheit))
+
+    @commands.command(pass_context=True)
     async def avatar(self,ctx,user: discord.User):
         await self.bot.say("https://cdn.discordapp.com/avatars/{}/{}.jpg?size=1024".format(user.id,user.avatar))
 
