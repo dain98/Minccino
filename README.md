@@ -44,6 +44,8 @@ Q: Is this the final version of the bot?
 **UI:**  
 [Stevy#3330](https://github.com/AznStevy) - I literally ripped off his design for -osutop and -compare from owo bot LOL(I'll change this so it's unique soon btw)  
   
+👑Stunner👑#8197 - Took time out of his day to invite my bot to every one of his emote servers for me to use. Without his help, I wouldn't have been able to make my League commands the way they are right now. Thank you so much ;_;
+  
 **Match Cost Formula:**  
 [josh | megatron#7200](https://twitter.com/silence_037) - Came up with the idea on his own bot!  
 Best459#2450 - Came up with the most updated equation that Minccino uses.  
