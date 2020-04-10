@@ -1,5 +1,6 @@
 ![Minccino - A Multi-Purpose Discord Bot](http://zenith.blue/i/49ipw.png)
 
+**Minccino is deprecated due to updating to discord.py1.0.1. The separate cogs can be found at [Cubchoo!](https://github.com/dain98/Cubchoo-disc)
 
 The bot is based off of [Red bot](https://github.com/Cog-Creators/Red-DiscordBot). The -osutop and -compare commands are **heavily** inspired by [owo bot](https://github.com/AznStevy/owo).  
 HUGE Thanks to [sagwayaya](https://twitter.com/sagwayaya) for help on graphics!
